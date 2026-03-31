@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+{% block title %}{{ client.company_name }}{% endblock %}
+{% block page_title %}{{ client.company_name }}{% endblock %}
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        {% if client.status.value == 'activo' %}<span class="badge bg-success">Activo</span>
+        {% elif client.status.value == 'inactivo' %}<span class="badge bg-secondary">Inactivo</span>
+        {% elif client.status.value == 'prospecto' %}<span class="badge bg-info">Prospecto</span>
+        {% endif %}
+        <span class="text-muted small ms-2">Cliente desde {{ client.created_at.strftime('%d/%m/%Y') }}</span>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="/contratos/nuevo?client_id={{ client.id }}" class="btn btn-success btn-sm"><i class="bi bi-file-plus me-1"></i>Nuevo Contrato</a>
+        <a href="/clientes/{{ client.id }}/editar" class="btn btn-outline-primary btn-sm"><i class="bi bi-pencil me-1"></i>Editar</a>
+        <form method="POST" action="/clientes/{{ client.id }}/eliminar" onsubmit="return confirm('¿Eliminar este cliente y todos sus datos?')">
+            <button type="submit" class="btn btn-outline-danger btn-sm"><i class="bi bi-trash"></i></button>
+        </form>
+    </div>
+</div>
+
+<div class="row g-3">
+    <!-- Información del cliente -->
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-header py-3"><i class="bi bi-building me-2"></i>Información</div>
+            <div class="card-body">
+                <dl class="row mb-0" style="font-size:0.9rem">
+                    <dt class="col-5 text-muted">Empresa</dt>
+                    <dd class="col-7 fw-semibold">{{ client.company_name }}</dd>
+                    <dt class="col-5 text-muted">Contacto</dt>
+                    <dd class="col-7">{{ client.contact_name }}</dd>
+                    <dt class="col-5 text-muted">Email</dt>
+                    <dd class="col-7"><a href="mailto:{{ client.email }}">{{ client.email }}</a></dd>
+                    <dt class="col-5 text-muted">Teléfono</dt>
+                    <dd class="col-7">{{ client.phone or '-' }}</dd>
+                    <dt class="col-5 text-muted">Industria</dt>
+                    <dd class="col-7">{{ client.industry or '-' }}</dd>
+                    <dt class="col-5 text-muted">Dirección</dt>
+                    <dd class="col-7">{{ client.address or '-' }}</dd>
+                </dl>
+                {% if client.notes %}
+                <hr>
+                <small class="text-muted">{{ client.notes }}</small>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Estadísticas -->
+        <div class="card mt-3">
+            <div class="card-header py-3"><i class="bi bi-graph-up me-2"></i>Resumen Financiero</div>
+            <div class="card-body">
+                <div class="d-flex justify-content-between mb-2">
+                    <span class="text-muted small">Total contratos</span>
+                    <span class="fw-semibold">{{ client.contracts|length }}</span>
+                </div>
+                <div class="d-flex justify-content-between mb-2">
+                    <span class="text-muted small">Contratos activos</span>
+                    <span class="fw-semibold text-success">{{ client.active_contracts|length }}</span>
+                </div>
+                <div class="d-flex justify-content-between">
+                    <span class="text-muted small">Ingresos totales</span>
+                    <span class="fw-bold text-success">${{ "{:,.2f}".format(client.total_revenue) }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Contratos -->
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center py-3">
+                <span><i class="bi bi-file-earmark-text me-2"></i>Contratos</span>
+                <a href="/contratos/nuevo" class="btn btn-sm btn-outline-success">Nuevo contrato</a>
+            </div>
+            <div class="card-body p-0">
+                {% if client.contracts %}
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead><tr><th>Título</th><th>Servicio</th><th>Monto</th><th>Período</th><th>Estado</th><th></th></tr></thead>
+                        <tbody>
+                        {% for contract in client.contracts %}
+                        <tr>
+                            <td><a href="/contratos/{{ contract.id }}" class="text-decoration-none small fw-semibold">{{ contract.title }}</a></td>
+                            <td class="small text-muted">{{ contract.service.name }}</td>
+                            <td class="small fw-semibold">${{ "{:,.2f}".format(contract.total_amount) }}</td>
+                            <td class="small text-muted">{{ contract.start_date.strftime('%d/%m/%y') }} - {{ contract.end_date.strftime('%d/%m/%y') }}</td>
+                            <td>
+                                {% if contract.status.value == 'activo' %}<span class="badge bg-success">Activo</span>
+                                {% elif contract.status.value == 'borrador' %}<span class="badge bg-secondary">Borrador</span>
+                                {% elif contract.status.value == 'completado' %}<span class="badge bg-primary">Completado</span>
+                                {% elif contract.status.value == 'cancelado' %}<span class="badge bg-danger">Cancelado</span>
+                                {% elif contract.status.value == 'pausado' %}<span class="badge bg-warning text-dark">Pausado</span>
+                                {% endif %}
+                            </td>
+                            <td><a href="/contratos/{{ contract.id }}" class="btn btn-sm btn-outline-primary"><i class="bi bi-eye"></i></a></td>
+                        </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center p-4">
+                    <p class="text-muted mb-2">Este cliente no tiene contratos.</p>
+                    <a href="/contratos/nuevo" class="btn btn-sm btn-success">Crear primer contrato</a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

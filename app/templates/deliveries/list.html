@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block title %}Entregas{% endblock %}
+{% block page_title %}Gestión de Entregas{% endblock %}
+{% block content %}
+
+<div class="card mb-3">
+    <div class="card-body py-2">
+        <div class="d-flex gap-2 flex-wrap">
+            <a href="/entregas/" class="btn btn-sm {% if not status_filter %}btn-primary{% else %}btn-outline-secondary{% endif %}">Todas</a>
+            <a href="/entregas/?status=pendiente" class="btn btn-sm {% if status_filter == 'pendiente' %}btn-secondary{% else %}btn-outline-secondary{% endif %}">Pendientes</a>
+            <a href="/entregas/?status=en_progreso" class="btn btn-sm {% if status_filter == 'en_progreso' %}btn-warning{% else %}btn-outline-warning{% endif %}">En Progreso</a>
+            <a href="/entregas/?status=completado" class="btn btn-sm {% if status_filter == 'completado' %}btn-info{% else %}btn-outline-info{% endif %}">Completadas</a>
+            <a href="/entregas/?status=entregado" class="btn btn-sm {% if status_filter == 'entregado' %}btn-success{% else %}btn-outline-success{% endif %}">Entregadas</a>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body p-0">
+        {% if deliveries %}
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>Entrega</th>
+                        <th>Cliente</th>
+                        <th>Contrato</th>
+                        <th>Fecha límite</th>
+                        <th>Estado</th>
+                        <th>Entregable</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for d in deliveries %}
+                <tr>
+                    <td>
+                        <div class="small fw-semibold">{{ d.title }}</div>
+                        {% if d.description %}<div class="small text-muted">{{ d.description[:50] }}</div>{% endif %}
+                    </td>
+                    <td class="small">{{ d.contract.client.company_name }}</td>
+                    <td class="small text-muted">{{ d.contract.title[:25] }}</td>
+                    <td class="small {% if d.due_date < now and d.status.value in ['pendiente','en_progreso'] %}text-danger fw-semibold{% endif %}">
+                        {{ d.due_date.strftime('%d/%m/%Y') }}
+                        {% if d.due_date < now and d.status.value in ['pendiente','en_progreso'] %}
+                        <span class="badge bg-danger ms-1">Atrasada</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if d.status.value == 'pendiente' %}<span class="badge bg-secondary">Pendiente</span>
+                        {% elif d.status.value == 'en_progreso' %}<span class="badge bg-warning text-dark">En progreso</span>
+                        {% elif d.status.value == 'completado' %}<span class="badge bg-info">Completado</span>
+                        {% elif d.status.value == 'entregado' %}<span class="badge bg-success">Entregado</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if d.deliverable_url %}<a href="{{ d.deliverable_url }}" target="_blank" class="btn btn-sm btn-outline-info"><i class="bi bi-link-45deg"></i></a>{% else %}<span class="text-muted small">-</span>{% endif %}
+                    </td>
+                    <td>
+                        <a href="/contratos/{{ d.contract_id }}" class="btn btn-sm btn-outline-primary"><i class="bi bi-eye"></i></a>
+                        {% if d.status.value == 'pendiente' %}
+                        <form method="POST" action="/entregas/{{ d.id }}/iniciar" class="d-inline">
+                            <button class="btn btn-sm btn-warning" title="Iniciar">Iniciar</button>
+                        </form>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center p-5">
+            <i class="bi bi-box-seam text-muted" style="font-size:3rem"></i>
+            <p class="text-muted mt-3">No hay entregas para mostrar.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

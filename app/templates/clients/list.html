@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block title %}Clientes{% endblock %}
+{% block page_title %}Clientes{% endblock %}
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <p class="text-muted mb-0">Gestión de empresas clientes</p>
+    </div>
+    <a href="/clientes/nuevo" class="btn btn-primary"><i class="bi bi-plus-lg me-1"></i>Nuevo Cliente</a>
+</div>
+
+<!-- Filtros -->
+<div class="card mb-3">
+    <div class="card-body py-2">
+        <div class="d-flex gap-2 flex-wrap">
+            <a href="/clientes/" class="btn btn-sm {% if not status_filter %}btn-primary{% else %}btn-outline-secondary{% endif %}">Todos</a>
+            <a href="/clientes/?status=activo" class="btn btn-sm {% if status_filter == 'activo' %}btn-success{% else %}btn-outline-success{% endif %}">Activos</a>
+            <a href="/clientes/?status=prospecto" class="btn btn-sm {% if status_filter == 'prospecto' %}btn-info{% else %}btn-outline-info{% endif %}">Prospectos</a>
+            <a href="/clientes/?status=inactivo" class="btn btn-sm {% if status_filter == 'inactivo' %}btn-secondary{% else %}btn-outline-secondary{% endif %}">Inactivos</a>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body p-0">
+        {% if clients %}
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>Empresa</th>
+                        <th>Contacto</th>
+                        <th>Email</th>
+                        <th>Industria</th>
+                        <th>Contratos</th>
+                        <th>Ingresos</th>
+                        <th>Estado</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for client in clients %}
+                <tr>
+                    <td>
+                        <a href="/clientes/{{ client.id }}" class="text-decoration-none fw-semibold">
+                            {{ client.company_name }}
+                        </a>
+                    </td>
+                    <td class="text-muted small">{{ client.contact_name }}</td>
+                    <td class="text-muted small">{{ client.email }}</td>
+                    <td class="small">{{ client.industry or '-' }}</td>
+                    <td>
+                        <span class="badge bg-primary-subtle text-primary">{{ client.contracts|length }} total</span>
+                        {% if client.active_contracts %}
+                        <span class="badge bg-success-subtle text-success">{{ client.active_contracts|length }} activo(s)</span>
+                        {% endif %}
+                    </td>
+                    <td class="fw-semibold text-success small">${{ "{:,.2f}".format(client.total_revenue) }}</td>
+                    <td>
+                        {% if client.status.value == 'activo' %}<span class="badge bg-success">Activo</span>
+                        {% elif client.status.value == 'inactivo' %}<span class="badge bg-secondary">Inactivo</span>
+                        {% elif client.status.value == 'prospecto' %}<span class="badge bg-info">Prospecto</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <div class="btn-group btn-group-sm">
+                            <a href="/clientes/{{ client.id }}" class="btn btn-outline-primary" title="Ver detalle"><i class="bi bi-eye"></i></a>
+                            <a href="/clientes/{{ client.id }}/editar" class="btn btn-outline-secondary" title="Editar"><i class="bi bi-pencil"></i></a>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center p-5">
+            <i class="bi bi-buildings text-muted" style="font-size:3rem"></i>
+            <p class="text-muted mt-3">No hay clientes registrados.</p>
+            <a href="/clientes/nuevo" class="btn btn-primary">Agregar primer cliente</a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

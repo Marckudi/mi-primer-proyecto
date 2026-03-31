@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}Servicios{% endblock %}
+{% block page_title %}Catálogo de Servicios{% endblock %}
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <p class="text-muted mb-0">Servicios de inteligencia ofrecidos</p>
+    <a href="/servicios/nuevo" class="btn btn-primary"><i class="bi bi-plus-lg me-1"></i>Nuevo Servicio</a>
+</div>
+
+<div class="row g-3">
+{% for service in services %}
+<div class="col-md-6 col-xl-4">
+    <div class="card h-100 {% if not service.is_active %}opacity-60{% endif %}">
+        <div class="card-body">
+            <div class="d-flex justify-content-between align-items-start mb-2">
+                <span class="badge bg-primary-subtle text-primary small">{{ service.category.value }}</span>
+                <div class="d-flex gap-1">
+                    {% if service.is_recurring %}<span class="badge bg-info-subtle text-info small"><i class="bi bi-arrow-repeat"></i> Recurrente</span>{% endif %}
+                    {% if service.is_active %}<span class="badge bg-success-subtle text-success small">Activo</span>
+                    {% else %}<span class="badge bg-secondary-subtle text-secondary small">Inactivo</span>{% endif %}
+                </div>
+            </div>
+            <h6 class="fw-bold mb-1">{{ service.name }}</h6>
+            <p class="text-muted small mb-2">{{ service.description[:100] if service.description else 'Sin descripción' }}{% if service.description and service.description|length > 100 %}...{% endif %}</p>
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <span class="fs-5 fw-bold text-success">${{ "{:,.2f}".format(service.price) }}</span>
+                <span class="text-muted small"><i class="bi bi-clock me-1"></i>{{ service.duration_days }} días</span>
+            </div>
+            {% if service.deliverables %}
+            <small class="text-muted"><i class="bi bi-box me-1"></i>{{ service.deliverables[:80] }}{% if service.deliverables|length > 80 %}...{% endif %}</small>
+            {% endif %}
+        </div>
+        <div class="card-footer bg-transparent d-flex gap-2">
+            <a href="/servicios/{{ service.id }}/editar" class="btn btn-sm btn-outline-primary flex-grow-1"><i class="bi bi-pencil me-1"></i>Editar</a>
+            <form method="POST" action="/servicios/{{ service.id }}/toggle">
+                <button type="submit" class="btn btn-sm {% if service.is_active %}btn-outline-warning{% else %}btn-outline-success{% endif %}">
+                    {% if service.is_active %}<i class="bi bi-pause"></i>{% else %}<i class="bi bi-play"></i>{% endif %}
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+{% else %}
+<div class="col-12 text-center p-5">
+    <i class="bi bi-briefcase text-muted" style="font-size:3rem"></i>
+    <p class="text-muted mt-3">No hay servicios registrados.</p>
+    <a href="/servicios/nuevo" class="btn btn-primary">Crear primer servicio</a>
+</div>
+{% endfor %}
+</div>
+{% endblock %}

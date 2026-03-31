@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+{% block title %}{% if contract %}Editar Contrato{% else %}Nuevo Contrato{% endif %}{% endblock %}
+{% block page_title %}{% if contract %}Editar Contrato{% else %}Nuevo Contrato{% endif %}{% endblock %}
+{% block content %}
+
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header py-3">
+                <i class="bi bi-file-earmark-plus me-2"></i>
+                {% if contract %}Editar Contrato{% else %}Crear Nuevo Contrato{% endif %}
+            </div>
+            <div class="card-body">
+                {% if not contract %}
+                <div class="alert alert-info small">
+                    <i class="bi bi-info-circle me-1"></i>
+                    Al crear el contrato, se generarán <strong>automáticamente</strong> el calendario de pagos y los hitos de entrega.
+                </div>
+                {% endif %}
+                <form method="POST">
+                    <div class="row g-3">
+                        {% if not contract %}
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Cliente *</label>
+                            <select name="client_id" class="form-select" required>
+                                <option value="">-- Seleccionar cliente --</option>
+                                {% for c in clients %}
+                                <option value="{{ c.id }}">{{ c.company_name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Servicio *</label>
+                            <select name="service_id" class="form-select" required id="serviceSelect">
+                                <option value="">-- Seleccionar servicio --</option>
+                                {% for s in services %}
+                                <option value="{{ s.id }}" data-price="{{ s.price }}" data-duration="{{ s.duration_days }}">{{ s.name }} - ${{ "{:,.2f}".format(s.price) }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        {% endif %}
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Título del Contrato</label>
+                            <input type="text" name="title" class="form-control" placeholder="Se genera automáticamente si se deja vacío" value="{{ contract.title if contract else '' }}">
+                        </div>
+                        {% if not contract %}
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">Monto Total (USD) *</label>
+                            <div class="input-group">
+                                <span class="input-group-text">$</span>
+                                <input type="number" name="total_amount" id="totalAmount" class="form-control" required min="0" step="0.01" value="">
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">Fecha Inicio *</label>
+                            <input type="date" name="start_date" id="startDate" class="form-control" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">Fecha Fin *</label>
+                            <input type="date" name="end_date" id="endDate" class="form-control" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">Esquema de pagos</label>
+                            <select name="payment_schedule" class="form-select">
+                                <option value="unico">Pago único</option>
+                                <option value="50-50">50% al inicio / 50% al final</option>
+                                <option value="mensual" selected>Mensual</option>
+                                <option value="trimestral">Trimestral</option>
+                            </select>
+                        </div>
+                        {% endif %}
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">Estado</label>
+                            <select name="status" class="form-select">
+                                <option value="activo" {% if contract and contract.status.value == 'activo' %}selected{% endif %}>Activo</option>
+                                <option value="borrador" {% if contract and contract.status.value == 'borrador' %}selected{% endif %}>Borrador</option>
+                                <option value="pausado" {% if contract and contract.status.value == 'pausado' %}selected{% endif %}>Pausado</option>
+                                <option value="completado" {% if contract and contract.status.value == 'completado' %}selected{% endif %}>Completado</option>
+                                <option value="cancelado" {% if contract and contract.status.value == 'cancelado' %}selected{% endif %}>Cancelado</option>
+                            </select>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Notas</label>
+                            <textarea name="notes" class="form-control" rows="3" placeholder="Condiciones especiales, acuerdos adicionales...">{{ contract.notes if contract else '' }}</textarea>
+                        </div>
+                        <div class="col-12 d-flex gap-2">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-check-lg me-1"></i>{% if contract %}Guardar Cambios{% else %}Crear Contrato{% endif %}
+                            </button>
+                            <a href="{% if contract %}/contratos/{{ contract.id }}{% else %}/contratos/{% endif %}" class="btn btn-outline-secondary">Cancelar</a>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+// Auto-fill price and dates when service is selected
+const serviceSelect = document.getElementById('serviceSelect');
+const startDate = document.getElementById('startDate');
+if (serviceSelect && startDate) {
+    const today = new Date().toISOString().split('T')[0];
+    startDate.value = today;
+
+    serviceSelect.addEventListener('change', function() {
+        const opt = this.options[this.selectedIndex];
+        const price = opt.dataset.price;
+        const duration = opt.dataset.duration;
+        if (price) document.getElementById('totalAmount').value = parseFloat(price).toFixed(2);
+        if (duration && startDate.value) {
+            const start = new Date(startDate.value);
+            const end = new Date(start);
+            end.setDate(end.getDate() + parseInt(duration));
+            document.getElementById('endDate').value = end.toISOString().split('T')[0];
+        }
+    });
+
+    startDate.addEventListener('change', function() {
+        const opt = serviceSelect.options[serviceSelect.selectedIndex];
+        const duration = opt ? opt.dataset.duration : null;
+        if (duration && this.value) {
+            const start = new Date(this.value);
+            const end = new Date(start);
+            end.setDate(end.getDate() + parseInt(duration));
+            document.getElementById('endDate').value = end.toISOString().split('T')[0];
+        }
+    });
+}
+</script>
+{% endblock %}

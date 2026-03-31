@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% block title %}Pagos{% endblock %}
+{% block page_title %}Gestión de Pagos{% endblock %}
+{% block content %}
+
+<div class="card mb-3">
+    <div class="card-body py-2">
+        <div class="d-flex gap-2 flex-wrap">
+            <a href="/pagos/" class="btn btn-sm {% if not status_filter %}btn-primary{% else %}btn-outline-secondary{% endif %}">Todos</a>
+            <a href="/pagos/?status=pendiente" class="btn btn-sm {% if status_filter == 'pendiente' %}btn-warning{% else %}btn-outline-warning{% endif %}">Pendientes</a>
+            <a href="/pagos/?status=pagado" class="btn btn-sm {% if status_filter == 'pagado' %}btn-success{% else %}btn-outline-success{% endif %}">Pagados</a>
+            <a href="/pagos/?status=vencido" class="btn btn-sm {% if status_filter == 'vencido' %}btn-danger{% else %}btn-outline-danger{% endif %}">Vencidos</a>
+            <a href="/pagos/vencidos" class="btn btn-sm btn-outline-danger ms-2"><i class="bi bi-exclamation-triangle me-1"></i>Ver vencidos</a>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body p-0">
+        {% if payments %}
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>Cliente</th>
+                        <th>Contrato</th>
+                        <th>Monto</th>
+                        <th>Vencimiento</th>
+                        <th>Pagado</th>
+                        <th>Método</th>
+                        <th>Estado</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for payment in payments %}
+                <tr>
+                    <td class="small fw-semibold">{{ payment.contract.client.company_name }}</td>
+                    <td class="small text-muted">{{ payment.contract.title[:30] }}</td>
+                    <td class="small fw-bold {% if payment.status.value == 'pagado' %}text-success{% endif %}">${{ "{:,.2f}".format(payment.amount) }}</td>
+                    <td class="small {% if payment.status.value in ['pendiente','vencido'] and payment.due_date < now %}text-danger{% endif %}">
+                        {{ payment.due_date.strftime('%d/%m/%Y') }}
+                    </td>
+                    <td class="small text-success">{{ payment.paid_date.strftime('%d/%m/%Y') if payment.paid_date else '-' }}</td>
+                    <td class="small text-muted">{{ payment.payment_method or '-' }}</td>
+                    <td>
+                        {% if payment.status.value == 'pagado' %}<span class="badge bg-success">Pagado</span>
+                        {% elif payment.status.value == 'pendiente' %}<span class="badge bg-warning text-dark">Pendiente</span>
+                        {% elif payment.status.value == 'vencido' %}<span class="badge bg-danger">Vencido</span>
+                        {% elif payment.status.value == 'cancelado' %}<span class="badge bg-secondary">Cancelado</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if payment.status.value in ['pendiente', 'vencido'] %}
+                        <button class="btn btn-sm btn-success" data-bs-toggle="modal" data-bs-target="#payModal{{ payment.id }}">
+                            <i class="bi bi-check-circle me-1"></i>Registrar
+                        </button>
+                        <div class="modal fade" id="payModal{{ payment.id }}" tabindex="-1">
+                            <div class="modal-dialog">
+                                <div class="modal-content">
+                                    <div class="modal-header">
+                                        <h6 class="modal-title">Registrar Pago - {{ payment.contract.client.company_name }}</h6>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                    </div>
+                                    <form method="POST" action="/pagos/{{ payment.id }}/registrar-pago">
+                                        <div class="modal-body">
+                                            <p class="text-muted small">Monto: <strong class="text-success">${{ "{:,.2f}".format(payment.amount) }}</strong></p>
+                                            <div class="mb-3">
+                                                <label class="form-label">Método de pago</label>
+                                                <select name="payment_method" class="form-select">
+                                                    <option value="transferencia">Transferencia bancaria</option>
+                                                    <option value="efectivo">Efectivo</option>
+                                                    <option value="tarjeta">Tarjeta</option>
+                                                    <option value="cheque">Cheque</option>
+                                                    <option value="otro">Otro</option>
+                                                </select>
+                                            </div>
+                                            <div class="mb-3">
+                                                <label class="form-label">Referencia</label>
+                                                <input type="text" name="reference" class="form-control">
+                                            </div>
+                                        </div>
+                                        <div class="modal-footer">
+                                            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                                            <button type="submit" class="btn btn-success">Confirmar</button>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center p-5">
+            <i class="bi bi-credit-card text-muted" style="font-size:3rem"></i>
+            <p class="text-muted mt-3">No hay pagos para mostrar.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

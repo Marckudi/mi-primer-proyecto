@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block title %}{% if client %}Editar Cliente{% else %}Nuevo Cliente{% endif %}{% endblock %}
+{% block page_title %}{% if client %}Editar Cliente{% else %}Nuevo Cliente{% endif %}{% endblock %}
+{% block content %}
+
+<div class="row justify-content-center">
+    <div class="col-lg-7">
+        <div class="card">
+            <div class="card-header py-3">
+                <i class="bi bi-{% if client %}pencil{% else %}person-plus{% endif %} me-2"></i>
+                {% if client %}Editar: {{ client.company_name }}{% else %}Registrar Nuevo Cliente{% endif %}
+            </div>
+            <div class="card-body">
+                {% if error %}
+                <div class="alert alert-danger">{{ error }}</div>
+                {% endif %}
+                <form method="POST">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Nombre de la Empresa *</label>
+                            <input type="text" name="company_name" class="form-control" required value="{{ client.company_name if client else '' }}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Nombre del Contacto *</label>
+                            <input type="text" name="contact_name" class="form-control" required value="{{ client.contact_name if client else '' }}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Email *</label>
+                            <input type="email" name="email" class="form-control" required value="{{ client.email if client else '' }}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Teléfono</label>
+                            <input type="text" name="phone" class="form-control" value="{{ client.phone if client else '' }}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Industria</label>
+                            <input type="text" name="industry" class="form-control" placeholder="Ej: Tecnología, Finanzas..." value="{{ client.industry if client else '' }}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Estado</label>
+                            <select name="status" class="form-select">
+                                <option value="activo" {% if client and client.status.value == 'activo' %}selected{% endif %}>Activo</option>
+                                <option value="prospecto" {% if client and client.status.value == 'prospecto' %}selected{% endif %}>Prospecto</option>
+                                <option value="inactivo" {% if client and client.status.value == 'inactivo' %}selected{% endif %}>Inactivo</option>
+                            </select>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Dirección</label>
+                            <input type="text" name="address" class="form-control" value="{{ client.address if client else '' }}">
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Notas internas</label>
+                            <textarea name="notes" class="form-control" rows="3" placeholder="Información adicional sobre el cliente...">{{ client.notes if client else '' }}</textarea>
+                        </div>
+                        <div class="col-12 d-flex gap-2">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-check-lg me-1"></i>{% if client %}Guardar Cambios{% else %}Registrar Cliente{% endif %}
+                            </button>
+                            <a href="{% if client %}/clientes/{{ client.id }}{% else %}/clientes/{% endif %}" class="btn btn-outline-secondary">Cancelar</a>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

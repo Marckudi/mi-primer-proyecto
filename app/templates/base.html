@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Agencia de Inteligencia{% endblock %}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        :root {
+            --sidebar-width: 260px;
+            --primary: #1a2744;
+            --accent: #2e86de;
+            --success: #27ae60;
+            --warning: #f39c12;
+            --danger: #e74c3c;
+        }
+        body { background: #f0f2f5; font-family: 'Segoe UI', sans-serif; }
+
+        /* Sidebar */
+        #sidebar {
+            width: var(--sidebar-width);
+            min-height: 100vh;
+            background: var(--primary);
+            position: fixed;
+            top: 0; left: 0;
+            z-index: 1000;
+            transition: width 0.3s;
+        }
+        #sidebar .logo {
+            padding: 20px 15px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        #sidebar .logo h5 { color: #fff; font-weight: 700; margin: 0; font-size: 0.95rem; }
+        #sidebar .logo span { color: var(--accent); font-size: 0.75rem; }
+        #sidebar .nav-link {
+            color: rgba(255,255,255,0.75);
+            padding: 10px 20px;
+            border-radius: 6px;
+            margin: 2px 8px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            transition: all 0.2s;
+            text-decoration: none;
+            font-size: 0.9rem;
+        }
+        #sidebar .nav-link:hover, #sidebar .nav-link.active {
+            color: #fff;
+            background: rgba(46, 134, 222, 0.3);
+        }
+        #sidebar .nav-link i { font-size: 1.1rem; width: 20px; }
+        #sidebar .nav-section {
+            color: rgba(255,255,255,0.35);
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            padding: 15px 20px 5px;
+        }
+
+        /* Main content */
+        #main-content {
+            margin-left: var(--sidebar-width);
+            min-height: 100vh;
+        }
+
+        /* Topbar */
+        .topbar {
+            background: #fff;
+            padding: 12px 24px;
+            border-bottom: 1px solid #e9ecef;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 999;
+        }
+        .topbar .page-title { font-weight: 600; color: var(--primary); font-size: 1.1rem; margin: 0; }
+
+        /* Cards */
+        .stat-card {
+            background: #fff;
+            border-radius: 12px;
+            padding: 20px;
+            border: none;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        }
+        .stat-card .stat-icon {
+            width: 48px; height: 48px;
+            border-radius: 10px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.4rem;
+        }
+        .stat-card .stat-value { font-size: 1.8rem; font-weight: 700; color: var(--primary); }
+        .stat-card .stat-label { color: #6c757d; font-size: 0.85rem; }
+
+        /* Tables */
+        .table { --bs-table-bg: transparent; }
+        .table thead th {
+            background: #f8f9fa;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #6c757d;
+            font-weight: 600;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        /* Badges */
+        .status-badge { font-size: 0.75rem; padding: 4px 10px; border-radius: 20px; font-weight: 500; }
+
+        /* Content area */
+        .content-area { padding: 24px; }
+
+        /* Cards */
+        .card { border: none; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+        .card-header { background: #fff; border-bottom: 1px solid #f0f2f5; font-weight: 600; }
+
+        /* Notifications panel */
+        .notification-item {
+            padding: 10px 15px;
+            border-bottom: 1px solid #f0f2f5;
+            cursor: pointer;
+        }
+        .notification-item:hover { background: #f8f9fa; }
+        .notification-item.unread { border-left: 3px solid var(--accent); }
+        .notification-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            #sidebar { width: 60px; }
+            #sidebar .logo h5, #sidebar .logo span,
+            #sidebar .nav-link span, #sidebar .nav-section { display: none; }
+            #main-content { margin-left: 60px; }
+        }
+    </style>
+    {% block extra_head %}{% endblock %}
+</head>
+<body>
+
+<!-- Sidebar -->
+<nav id="sidebar">
+    <div class="logo">
+        <h5><i class="bi bi-shield-lock-fill me-2" style="color:var(--accent)"></i>Agencia de<br>Inteligencia</h5>
+        <span>Panel de Control</span>
+    </div>
+    <div class="nav-section">Principal</div>
+    <a href="/" class="nav-link {% if request.url.path == '/' %}active{% endif %}">
+        <i class="bi bi-speedometer2"></i><span>Dashboard</span>
+    </a>
+    <div class="nav-section">Gestión</div>
+    <a href="/clientes/" class="nav-link {% if '/clientes' in request.url.path %}active{% endif %}">
+        <i class="bi bi-buildings"></i><span>Clientes</span>
+    </a>
+    <a href="/servicios/" class="nav-link {% if '/servicios' in request.url.path %}active{% endif %}">
+        <i class="bi bi-briefcase"></i><span>Servicios</span>
+    </a>
+    <a href="/contratos/" class="nav-link {% if '/contratos' in request.url.path %}active{% endif %}">
+        <i class="bi bi-file-earmark-text"></i><span>Contratos</span>
+    </a>
+    <div class="nav-section">Finanzas</div>
+    <a href="/pagos/" class="nav-link {% if '/pagos' in request.url.path and 'vencidos' not in request.url.path %}active{% endif %}">
+        <i class="bi bi-credit-card"></i><span>Pagos</span>
+    </a>
+    <a href="/pagos/vencidos" class="nav-link {% if 'vencidos' in request.url.path %}active{% endif %}">
+        <i class="bi bi-exclamation-triangle"></i><span>Pagos Vencidos</span>
+    </a>
+    <div class="nav-section">Operaciones</div>
+    <a href="/entregas/" class="nav-link {% if '/entregas' in request.url.path %}active{% endif %}">
+        <i class="bi bi-box-seam"></i><span>Entregas</span>
+    </a>
+</nav>
+
+<!-- Main -->
+<div id="main-content">
+    <!-- Topbar -->
+    <div class="topbar">
+        <h6 class="page-title">{% block page_title %}Dashboard{% endblock %}</h6>
+        <div class="d-flex align-items-center gap-3">
+            <div class="dropdown">
+                <button class="btn btn-light btn-sm position-relative" data-bs-toggle="dropdown">
+                    <i class="bi bi-bell"></i>
+                    {% if unread_count is defined and unread_count > 0 %}
+                    <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style="font-size:0.65rem">
+                        {{ unread_count if unread_count < 99 else '99+' }}
+                    </span>
+                    {% endif %}
+                </button>
+                <div class="dropdown-menu dropdown-menu-end" style="width:340px;max-height:400px;overflow-y:auto;">
+                    <div class="d-flex justify-content-between align-items-center px-3 py-2 border-bottom">
+                        <strong style="font-size:0.9rem">Notificaciones</strong>
+                        <a href="#" onclick="markAllRead()" class="text-muted small">Marcar todas leídas</a>
+                    </div>
+                    {% if unread_notifications is defined %}
+                    {% for notif in unread_notifications %}
+                    <div class="notification-item {% if not notif.is_read %}unread{% endif %}" onclick="markRead({{ notif.id }})">
+                        <div class="d-flex justify-content-between">
+                            <small class="fw-semibold">{{ notif.title }}</small>
+                            <small class="text-muted">{{ notif.created_at.strftime('%d/%m %H:%M') }}</small>
+                        </div>
+                        <small class="text-muted">{{ notif.message[:80] }}{% if notif.message|length > 80 %}...{% endif %}</small>
+                    </div>
+                    {% else %}
+                    <p class="text-muted text-center small p-3">Sin notificaciones</p>
+                    {% endfor %}
+                    {% endif %}
+                </div>
+            </div>
+            <div class="text-end">
+                <div style="font-size:0.85rem;font-weight:600;color:var(--primary)">Propietario</div>
+                <div style="font-size:0.75rem;color:#6c757d">Administrador</div>
+            </div>
+            <div class="rounded-circle bg-primary text-white d-flex align-items-center justify-content-center" style="width:36px;height:36px;font-weight:700">A</div>
+        </div>
+    </div>
+
+    <!-- Page content -->
+    <div class="content-area">
+        {% block content %}{% endblock %}
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+function markRead(id) {
+    fetch(`/notifications/${id}/read`, {method: 'POST'}).then(() => location.reload());
+}
+function markAllRead() {
+    fetch('/notifications/read-all', {method: 'POST'}).then(() => location.reload());
+}
+</script>
+{% block extra_scripts %}{% endblock %}
+</body>
+</html>

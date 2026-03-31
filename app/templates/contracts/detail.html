@@ -1,0 +1,279 @@
+{% extends "base.html" %}
+{% block title %}{{ contract.title }}{% endblock %}
+{% block page_title %}{{ contract.title }}{% endblock %}
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        {% if contract.status.value == 'activo' %}<span class="badge bg-success fs-6">Activo</span>
+        {% elif contract.status.value == 'borrador' %}<span class="badge bg-secondary fs-6">Borrador</span>
+        {% elif contract.status.value == 'completado' %}<span class="badge bg-primary fs-6">Completado</span>
+        {% elif contract.status.value == 'cancelado' %}<span class="badge bg-danger fs-6">Cancelado</span>
+        {% elif contract.status.value == 'pausado' %}<span class="badge bg-warning text-dark fs-6">Pausado</span>
+        {% endif %}
+        <span class="text-muted small ms-2">Creado: {{ contract.created_at.strftime('%d/%m/%Y') }}</span>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="/contratos/{{ contract.id }}/editar" class="btn btn-outline-secondary btn-sm"><i class="bi bi-pencil me-1"></i>Editar</a>
+        {% if contract.status.value == 'activo' %}
+        <form method="POST" action="/contratos/{{ contract.id }}/estado/pausado">
+            <button class="btn btn-warning btn-sm"><i class="bi bi-pause me-1"></i>Pausar</button>
+        </form>
+        {% elif contract.status.value == 'pausado' %}
+        <form method="POST" action="/contratos/{{ contract.id }}/estado/activo">
+            <button class="btn btn-success btn-sm"><i class="bi bi-play me-1"></i>Reactivar</button>
+        </form>
+        {% endif %}
+    </div>
+</div>
+
+<div class="row g-3">
+    <!-- Info general -->
+    <div class="col-lg-4">
+        <div class="card mb-3">
+            <div class="card-header py-3"><i class="bi bi-info-circle me-2"></i>Detalles del Contrato</div>
+            <div class="card-body" style="font-size:0.9rem">
+                <dl class="row mb-0">
+                    <dt class="col-5 text-muted">Cliente</dt>
+                    <dd class="col-7"><a href="/clientes/{{ contract.client_id }}" class="text-decoration-none">{{ contract.client.company_name }}</a></dd>
+                    <dt class="col-5 text-muted">Servicio</dt>
+                    <dd class="col-7">{{ contract.service.name }}</dd>
+                    <dt class="col-5 text-muted">Inicio</dt>
+                    <dd class="col-7">{{ contract.start_date.strftime('%d/%m/%Y') }}</dd>
+                    <dt class="col-5 text-muted">Fin</dt>
+                    <dd class="col-7">{{ contract.end_date.strftime('%d/%m/%Y') }}</dd>
+                    <dt class="col-5 text-muted">Días restantes</dt>
+                    <dd class="col-7 {% if contract.days_remaining < 0 %}text-danger{% elif contract.days_remaining < 30 %}text-warning{% endif %}">
+                        {% if contract.days_remaining < 0 %}Vencido{% else %}{{ contract.days_remaining }} días{% endif %}
+                    </dd>
+                    <dt class="col-5 text-muted">Pagos</dt>
+                    <dd class="col-7">{{ contract.payment_schedule }}</dd>
+                </dl>
+            </div>
+        </div>
+
+        <!-- Resumen financiero -->
+        <div class="card">
+            <div class="card-header py-3"><i class="bi bi-cash-stack me-2"></i>Resumen Financiero</div>
+            <div class="card-body">
+                <div class="d-flex justify-content-between mb-1">
+                    <span class="text-muted small">Total contrato</span>
+                    <span class="fw-bold">${{ "{:,.2f}".format(contract.total_amount) }}</span>
+                </div>
+                <div class="d-flex justify-content-between mb-1">
+                    <span class="text-muted small">Cobrado</span>
+                    <span class="fw-bold text-success">${{ "{:,.2f}".format(contract.paid_amount) }}</span>
+                </div>
+                <div class="d-flex justify-content-between mb-2">
+                    <span class="text-muted small">Pendiente</span>
+                    <span class="fw-bold text-warning">${{ "{:,.2f}".format(contract.pending_amount) }}</span>
+                </div>
+                <div class="progress" style="height:8px">
+                    <div class="progress-bar bg-success" style="width:{{ [(contract.paid_amount / contract.total_amount * 100) if contract.total_amount else 0, 100] | min | round }}%"></div>
+                </div>
+                <small class="text-muted">{{ ((contract.paid_amount / contract.total_amount * 100) if contract.total_amount else 0) | round(1) }}% cobrado</small>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pagos -->
+    <div class="col-lg-8">
+        <div class="card mb-3">
+            <div class="card-header py-3 d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-credit-card me-2"></i>Calendario de Pagos</span>
+                <span class="text-muted small">{{ contract.payments|length }} pago(s)</span>
+            </div>
+            <div class="card-body p-0">
+                {% if contract.payments %}
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead><tr><th>#</th><th>Monto</th><th>Vencimiento</th><th>Pagado</th><th>Estado</th><th>Acciones</th></tr></thead>
+                        <tbody>
+                        {% for i, payment in enumerate(contract.payments) %}
+                        <tr>
+                            <td class="text-muted small">{{ i + 1 }}</td>
+                            <td class="fw-semibold small">${{ "{:,.2f}".format(payment.amount) }}</td>
+                            <td class="small {% if payment.is_overdue %}text-danger{% endif %}">
+                                {{ payment.due_date.strftime('%d/%m/%Y') }}
+                                {% if payment.is_overdue %}<span class="badge bg-danger ms-1">VENCIDO</span>{% endif %}
+                            </td>
+                            <td class="small text-success">{{ payment.paid_date.strftime('%d/%m/%Y') if payment.paid_date else '-' }}</td>
+                            <td>
+                                {% if payment.status.value == 'pagado' %}<span class="badge bg-success">Pagado</span>
+                                {% elif payment.status.value == 'pendiente' %}<span class="badge bg-warning text-dark">Pendiente</span>
+                                {% elif payment.status.value == 'vencido' %}<span class="badge bg-danger">Vencido</span>
+                                {% elif payment.status.value == 'cancelado' %}<span class="badge bg-secondary">Cancelado</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if payment.status.value in ['pendiente', 'vencido'] %}
+                                <button class="btn btn-sm btn-success" data-bs-toggle="modal" data-bs-target="#payModal{{ payment.id }}">
+                                    <i class="bi bi-check-circle me-1"></i>Registrar Pago
+                                </button>
+
+                                <!-- Modal pago -->
+                                <div class="modal fade" id="payModal{{ payment.id }}" tabindex="-1">
+                                    <div class="modal-dialog">
+                                        <div class="modal-content">
+                                            <div class="modal-header">
+                                                <h6 class="modal-title">Registrar Pago - ${{ "{:,.2f}".format(payment.amount) }}</h6>
+                                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                            </div>
+                                            <form method="POST" action="/pagos/{{ payment.id }}/registrar-pago">
+                                                <div class="modal-body">
+                                                    <div class="mb-3">
+                                                        <label class="form-label">Método de pago</label>
+                                                        <select name="payment_method" class="form-select">
+                                                            <option value="transferencia">Transferencia bancaria</option>
+                                                            <option value="efectivo">Efectivo</option>
+                                                            <option value="tarjeta">Tarjeta</option>
+                                                            <option value="cheque">Cheque</option>
+                                                            <option value="crypto">Criptomoneda</option>
+                                                            <option value="otro">Otro</option>
+                                                        </select>
+                                                    </div>
+                                                    <div class="mb-3">
+                                                        <label class="form-label">Referencia / Comprobante</label>
+                                                        <input type="text" name="reference" class="form-control" placeholder="Número de transacción...">
+                                                    </div>
+                                                    <div class="mb-3">
+                                                        <label class="form-label">Notas</label>
+                                                        <textarea name="notes" class="form-control" rows="2"></textarea>
+                                                    </div>
+                                                </div>
+                                                <div class="modal-footer">
+                                                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                                                    <button type="submit" class="btn btn-success"><i class="bi bi-check-lg me-1"></i>Confirmar Pago</button>
+                                                </div>
+                                            </form>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% elif payment.status.value == 'pagado' %}
+                                <small class="text-muted">{{ payment.payment_method or '' }} {{ payment.reference or '' }}</small>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="text-center text-muted p-3">Sin pagos generados</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Entregas -->
+        <div class="card">
+            <div class="card-header py-3 d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-box-seam me-2"></i>Hitos de Entrega</span>
+                <span class="text-muted small">{{ contract.deliveries|length }} hito(s)</span>
+            </div>
+            <div class="card-body p-0">
+                {% if contract.deliveries %}
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead><tr><th>Entrega</th><th>Fecha límite</th><th>Estado</th><th>Acciones</th></tr></thead>
+                        <tbody>
+                        {% for delivery in contract.deliveries %}
+                        <tr>
+                            <td>
+                                <div class="small fw-semibold">{{ delivery.title }}</div>
+                                {% if delivery.description %}<div class="small text-muted">{{ delivery.description[:60] }}...</div>{% endif %}
+                                {% if delivery.deliverable_url %}<a href="{{ delivery.deliverable_url }}" target="_blank" class="small text-primary"><i class="bi bi-link-45deg"></i>Ver entregable</a>{% endif %}
+                            </td>
+                            <td class="small {% if delivery.due_date < now and delivery.status.value in ['pendiente','en_progreso'] %}text-danger{% endif %}">
+                                {{ delivery.due_date.strftime('%d/%m/%Y') }}
+                            </td>
+                            <td>
+                                {% if delivery.status.value == 'pendiente' %}<span class="badge bg-secondary">Pendiente</span>
+                                {% elif delivery.status.value == 'en_progreso' %}<span class="badge bg-warning text-dark">En progreso</span>
+                                {% elif delivery.status.value == 'completado' %}<span class="badge bg-info">Completado</span>
+                                {% elif delivery.status.value == 'entregado' %}<span class="badge bg-success">Entregado al cliente</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if delivery.status.value == 'pendiente' %}
+                                <form method="POST" action="/entregas/{{ delivery.id }}/iniciar" class="d-inline">
+                                    <button class="btn btn-sm btn-outline-warning">Iniciar</button>
+                                </form>
+                                {% elif delivery.status.value == 'en_progreso' %}
+                                <button class="btn btn-sm btn-info" data-bs-toggle="modal" data-bs-target="#completeModal{{ delivery.id }}">Completar</button>
+                                {% elif delivery.status.value == 'completado' %}
+                                <button class="btn btn-sm btn-success" data-bs-toggle="modal" data-bs-target="#deliverModal{{ delivery.id }}">Entregar al cliente</button>
+                                {% endif %}
+
+                                <!-- Modal completar -->
+                                {% if delivery.status.value == 'en_progreso' %}
+                                <div class="modal fade" id="completeModal{{ delivery.id }}" tabindex="-1">
+                                    <div class="modal-dialog">
+                                        <div class="modal-content">
+                                            <div class="modal-header"><h6 class="modal-title">Completar Entrega</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+                                            <form method="POST" action="/entregas/{{ delivery.id }}/completar">
+                                                <div class="modal-body">
+                                                    <div class="mb-3">
+                                                        <label class="form-label">URL del entregable (opcional)</label>
+                                                        <input type="url" name="deliverable_url" class="form-control" placeholder="https://...">
+                                                    </div>
+                                                    <div class="mb-3">
+                                                        <label class="form-label">Notas</label>
+                                                        <textarea name="notes" class="form-control" rows="2"></textarea>
+                                                    </div>
+                                                </div>
+                                                <div class="modal-footer">
+                                                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                                                    <button type="submit" class="btn btn-info">Marcar como completado</button>
+                                                </div>
+                                            </form>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endif %}
+
+                                <!-- Modal entregar -->
+                                {% if delivery.status.value == 'completado' %}
+                                <div class="modal fade" id="deliverModal{{ delivery.id }}" tabindex="-1">
+                                    <div class="modal-dialog">
+                                        <div class="modal-content">
+                                            <div class="modal-header"><h6 class="modal-title">Entregar al Cliente</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+                                            <form method="POST" action="/entregas/{{ delivery.id }}/entregar">
+                                                <div class="modal-body">
+                                                    <div class="mb-3">
+                                                        <label class="form-label">URL del entregable</label>
+                                                        <input type="url" name="deliverable_url" class="form-control" value="{{ delivery.deliverable_url or '' }}" placeholder="https://...">
+                                                    </div>
+                                                    <div class="mb-3">
+                                                        <label class="form-label">Mensaje al cliente</label>
+                                                        <textarea name="notes" class="form-control" rows="2" placeholder="Mensaje adicional para el cliente..."></textarea>
+                                                    </div>
+                                                </div>
+                                                <div class="modal-footer">
+                                                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                                                    <button type="submit" class="btn btn-success"><i class="bi bi-send me-1"></i>Confirmar Entrega</button>
+                                                </div>
+                                            </form>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="text-center text-muted p-3">Sin hitos de entrega</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+// Make enumerate available in template context
+</script>
+{% endblock %}

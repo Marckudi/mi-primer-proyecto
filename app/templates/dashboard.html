@@ -1,0 +1,259 @@
+{% extends "base.html" %}
+{% block title %}Dashboard - Agencia de Inteligencia{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+
+{% block extra_head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<!-- KPIs -->
+<div class="row g-3 mb-4">
+    <div class="col-sm-6 col-xl-3">
+        <div class="stat-card">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <div class="stat-value">{{ total_clients }}</div>
+                    <div class="stat-label">Clientes Activos</div>
+                </div>
+                <div class="stat-icon" style="background:#e8f4fd">
+                    <i class="bi bi-buildings" style="color:#2e86de"></i>
+                </div>
+            </div>
+            <div class="mt-2"><a href="/clientes/" class="small text-muted">Ver todos <i class="bi bi-arrow-right"></i></a></div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-xl-3">
+        <div class="stat-card">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <div class="stat-value">{{ active_contracts }}</div>
+                    <div class="stat-label">Contratos Activos</div>
+                </div>
+                <div class="stat-icon" style="background:#e8f8ef">
+                    <i class="bi bi-file-earmark-check" style="color:#27ae60"></i>
+                </div>
+            </div>
+            <div class="mt-2"><a href="/contratos/?status=activo" class="small text-muted">Ver activos <i class="bi bi-arrow-right"></i></a></div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-xl-3">
+        <div class="stat-card">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <div class="stat-value">${{ "{:,.0f}".format(monthly_revenue) }}</div>
+                    <div class="stat-label">Ingresos del Mes</div>
+                </div>
+                <div class="stat-icon" style="background:#eafaf1">
+                    <i class="bi bi-currency-dollar" style="color:#27ae60"></i>
+                </div>
+            </div>
+            <div class="mt-2"><a href="/pagos/?status=pagado" class="small text-muted">Ver pagos <i class="bi bi-arrow-right"></i></a></div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-xl-3">
+        <div class="stat-card">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <div class="stat-value {% if overdue_payments|length > 0 %}text-danger{% endif %}">${{ "{:,.0f}".format(pending_payments) }}</div>
+                    <div class="stat-label">Pagos Pendientes</div>
+                </div>
+                <div class="stat-icon" style="background:#fdf3e3">
+                    <i class="bi bi-clock-history" style="color:#f39c12"></i>
+                </div>
+            </div>
+            <div class="mt-2">
+                {% if overdue_payments|length > 0 %}
+                <a href="/pagos/vencidos" class="small text-danger"><i class="bi bi-exclamation-circle"></i> {{ overdue_payments|length }} vencido(s)</a>
+                {% else %}
+                <span class="small text-success"><i class="bi bi-check-circle"></i> Sin vencidos</span>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-3">
+    <!-- Gráfico de ingresos -->
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center py-3">
+                <span><i class="bi bi-bar-chart-line me-2 text-primary"></i>Ingresos (últimos 6 meses)</span>
+            </div>
+            <div class="card-body">
+                <canvas id="revenueChart" height="120"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Alertas -->
+    <div class="col-lg-4">
+        <div class="card h-100">
+            <div class="card-header py-3"><i class="bi bi-bell me-2 text-warning"></i>Alertas del Sistema</div>
+            <div class="card-body p-0">
+                {% if overdue_payments %}
+                <div class="p-3 border-bottom" style="background:#fff5f5">
+                    <div class="d-flex align-items-center gap-2">
+                        <i class="bi bi-exclamation-circle text-danger"></i>
+                        <div>
+                            <div class="fw-semibold small">{{ overdue_payments|length }} Pago(s) Vencido(s)</div>
+                            <a href="/pagos/vencidos" class="small text-danger">Ver detalles</a>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+                {% if upcoming_payments %}
+                <div class="p-3 border-bottom" style="background:#fffbf0">
+                    <div class="d-flex align-items-center gap-2">
+                        <i class="bi bi-clock text-warning"></i>
+                        <div>
+                            <div class="fw-semibold small">{{ upcoming_payments|length }} Pago(s) Próximos (7 días)</div>
+                            {% for p in upcoming_payments[:2] %}
+                            <div class="small text-muted">{{ p.contract.client.company_name }} - ${{ "{:,.0f}".format(p.amount) }} ({{ p.due_date.strftime('%d/%m') }})</div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+                {% if expiring_contracts %}
+                <div class="p-3 border-bottom" style="background:#fff8e1">
+                    <div class="d-flex align-items-center gap-2">
+                        <i class="bi bi-calendar-x text-warning"></i>
+                        <div>
+                            <div class="fw-semibold small">{{ expiring_contracts|length }} Contrato(s) por Vencer</div>
+                            {% for c in expiring_contracts[:2] %}
+                            <div class="small text-muted">{{ c.client.company_name }} - {{ c.days_remaining }} días</div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+                {% if not overdue_payments and not upcoming_payments and not expiring_contracts %}
+                <div class="p-4 text-center text-muted">
+                    <i class="bi bi-check-circle-fill text-success" style="font-size:2rem"></i>
+                    <p class="mt-2 mb-0 small">Todo al día</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Próximas entregas -->
+    <div class="col-lg-6">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center py-3">
+                <span><i class="bi bi-box-seam me-2 text-primary"></i>Entregas Pendientes</span>
+                <a href="/entregas/" class="btn btn-sm btn-outline-primary">Ver todas</a>
+            </div>
+            <div class="card-body p-0">
+                {% if pending_deliveries %}
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead><tr><th>Entrega</th><th>Cliente</th><th>Fecha límite</th><th>Estado</th></tr></thead>
+                        <tbody>
+                        {% for d in pending_deliveries %}
+                        <tr>
+                            <td class="small">{{ d.title[:30] }}{% if d.title|length > 30 %}...{% endif %}</td>
+                            <td class="small">{{ d.contract.client.company_name }}</td>
+                            <td class="small {% if d.due_date < now %}text-danger{% endif %}">
+                                {{ d.due_date.strftime('%d/%m/%Y') }}
+                                {% if d.due_date < now %}<i class="bi bi-exclamation-circle"></i>{% endif %}
+                            </td>
+                            <td>
+                                {% if d.status.value == 'pendiente' %}<span class="badge bg-secondary">Pendiente</span>
+                                {% elif d.status.value == 'en_progreso' %}<span class="badge bg-warning text-dark">En progreso</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="text-muted text-center p-4 mb-0">Sin entregas pendientes</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Últimos pagos recibidos -->
+    <div class="col-lg-6">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center py-3">
+                <span><i class="bi bi-check-circle me-2 text-success"></i>Últimos Pagos Recibidos</span>
+                <a href="/pagos/?status=pagado" class="btn btn-sm btn-outline-success">Ver todos</a>
+            </div>
+            <div class="card-body p-0">
+                {% if recent_payments %}
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead><tr><th>Cliente</th><th>Monto</th><th>Fecha</th><th>Método</th></tr></thead>
+                        <tbody>
+                        {% for p in recent_payments %}
+                        <tr>
+                            <td class="small">{{ p.contract.client.company_name }}</td>
+                            <td class="small fw-semibold text-success">${{ "{:,.2f}".format(p.amount) }}</td>
+                            <td class="small">{{ p.paid_date.strftime('%d/%m/%Y') if p.paid_date }}</td>
+                            <td class="small text-muted">{{ p.payment_method or '-' }}</td>
+                        </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="text-muted text-center p-4 mb-0">Sin pagos recientes</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Acciones rápidas -->
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header py-3"><i class="bi bi-lightning me-2 text-warning"></i>Acciones Rápidas</div>
+            <div class="card-body">
+                <div class="row g-2">
+                    <div class="col-auto"><a href="/clientes/nuevo" class="btn btn-outline-primary"><i class="bi bi-person-plus me-1"></i>Nuevo Cliente</a></div>
+                    <div class="col-auto"><a href="/contratos/nuevo" class="btn btn-outline-success"><i class="bi bi-file-plus me-1"></i>Nuevo Contrato</a></div>
+                    <div class="col-auto"><a href="/servicios/nuevo" class="btn btn-outline-info"><i class="bi bi-briefcase me-1"></i>Nuevo Servicio</a></div>
+                    <div class="col-auto"><a href="/pagos/vencidos" class="btn btn-outline-danger"><i class="bi bi-exclamation-triangle me-1"></i>Pagos Vencidos</a></div>
+                    <div class="col-auto"><a href="/entregas/" class="btn btn-outline-secondary"><i class="bi bi-box-seam me-1"></i>Ver Entregas</a></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+const ctx = document.getElementById('revenueChart').getContext('2d');
+const monthlyData = {{ monthly_data | tojson }};
+new Chart(ctx, {
+    type: 'bar',
+    data: {
+        labels: monthlyData.map(d => d.month),
+        datasets: [{
+            label: 'Ingresos ($)',
+            data: monthlyData.map(d => d.amount),
+            backgroundColor: 'rgba(46, 134, 222, 0.7)',
+            borderColor: 'rgba(46, 134, 222, 1)',
+            borderWidth: 1,
+            borderRadius: 6,
+        }]
+    },
+    options: {
+        responsive: true,
+        plugins: { legend: { display: false } },
+        scales: {
+            y: {
+                beginAtZero: true,
+                ticks: {
+                    callback: function(v) { return '$' + v.toLocaleString(); }
+                }
+            }
+        }
+    }
+});
+</script>
+{% endblock %}

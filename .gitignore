@@ -1,0 +1,12 @@
+# Credentials — NUNCA subir al repo
+.env
+
+# Generated data (state, logs, downloaded images)
+data/
+
+# Dependencies
+node_modules/
+
+# Build artifacts
+dist/
+*.js.map

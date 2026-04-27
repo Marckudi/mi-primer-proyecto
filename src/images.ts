@@ -27,24 +27,22 @@ export async function generateAndUploadImages(prompts: string[]): Promise<string
           `Montserrat Bold typography, no text unless specified.`,
         size: "1024x1024",
         quality: "hd",
+        response_format: "b64_json",
         n: 1,
       });
 
-      const imageUrl = response.data?.[0]?.url;
-      if (!imageUrl) {
-        log.warn("DALL-E no devolvió URL de imagen");
+      const b64 = response.data?.[0]?.b64_json;
+      if (!b64) {
+        log.warn("DALL-E no devolvió imagen");
         continue;
       }
 
-      // Download from OpenAI (URL expires in ~1h) then upload to Supabase Storage
-      const imageResponse = await fetch(imageUrl);
-      const imageBlob = await imageResponse.blob();
-
+      const imageBuffer = Buffer.from(b64, "base64");
       const filename = `instagram/${Date.now()}-${Math.random().toString(36).slice(2, 9)}.png`;
 
       const { data: uploadData, error } = await supabase.storage
         .from("instagram-media")
-        .upload(filename, imageBlob, { contentType: "image/png", cacheControl: "3600" });
+        .upload(filename, imageBuffer, { contentType: "image/png", cacheControl: "3600" });
 
       if (error) {
         log.error(`Error subiendo imagen a Supabase: ${error.message}`);

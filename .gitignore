@@ -1,4 +1,10 @@
+# Python
 __pycache__/
 *.pyc
 agencia.db
 .env
+
+# Node.js
+node_modules/
+data/
+scripts/run.sh

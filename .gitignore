@@ -1,0 +1,12 @@
+# Python
+__pycache__/
+*.pyc
+agencia.db
+
+# Credenciales — nunca subir
+.env
+
+# Node.js
+node_modules/
+data/
+scripts/run.sh

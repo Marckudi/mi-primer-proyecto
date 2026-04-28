@@ -2,17 +2,15 @@ name: AlphaVision Instagram Auto-Publish
 
 on:
   schedule:
-    # Genera contenido a las 06:00 UTC (08:00 CET)
-    - cron: '0 6 * * 1-5'
-    # Publica post de mañana a las 09:00 UTC (11:00 CET)
-    - cron: '0 9 * * 1-5'
-    # Publica post de tarde a las 16:00 UTC (18:00 CET)
-    - cron: '0 16 * * 1-5'
-    # Sábado: carrusel top 3 a las 12:00 UTC
+    # Lunes-Viernes: post de las 10:00 UTC (12:00 CEST)
+    - cron: '0 10 * * 1-5'
+    # Lunes-Viernes: post de las 18:00 UTC (20:00 CEST)
+    - cron: '0 18 * * 1-5'
+    # Sábado: carrusel a las 12:00 UTC (14:00 CEST)
     - cron: '0 12 * * 6'
-    # Domingo: preview semana a las 18:00 UTC
+    # Domingo: preview a las 18:00 UTC (20:00 CEST)
     - cron: '0 18 * * 0'
-  workflow_dispatch: # permite lanzarlo manualmente desde GitHub
+  workflow_dispatch:
 
 jobs:
   publish:

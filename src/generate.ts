@@ -190,7 +190,6 @@ export async function generateContent(contentType: ContentType): Promise<{
   const message = await anthropic.messages.create({
     model: "claude-opus-4-7",
     max_tokens: 4000,
-    thinking: { type: "enabled", budget_tokens: 8000 },
     system: SYSTEM_PROMPT,
     messages: [{ role: "user", content: template.prompt }],
   });

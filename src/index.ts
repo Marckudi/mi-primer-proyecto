@@ -7,11 +7,16 @@ import { log } from "./logger.js";
 import type { ContentType } from "./types.js";
 
 const SLOT_WINDOW_MINUTES = 90;
+const FORCE_ALL = process.env.FORCE_ALL_SLOTS === "true";
 
 function getActiveSlots(
   schedule: Record<string, ContentType>,
   now: Date,
 ): [string, ContentType][] {
+  if (FORCE_ALL) {
+    log.info("Modo forzado: procesando todos los slots del día");
+    return Object.entries(schedule);
+  }
   const nowMinutes = now.getUTCHours() * 60 + now.getUTCMinutes();
   return Object.entries(schedule).filter(([hora]) => {
     const [h, m] = hora.split(":").map(Number);
@@ -33,6 +38,7 @@ async function main(): Promise<void> {
   if (activeSlots.length === 0) {
     log.info(`No hay slots activos ahora (${now.toUTCString()})`);
     log.info(`Slots de hoy: ${JSON.stringify(schedule)}`);
+    log.info("Para forzar todos los slots usa: Run workflow → force_all = true");
     return;
   }
 
@@ -50,7 +56,7 @@ async function main(): Promise<void> {
       }
 
       if (mediaUrls.length === 0) {
-        log.error(`Sin imágenes para publicar en slot ${hora} — abortando`);
+        log.error(`Sin imágenes para publicar en slot ${hora} — abortando este slot`);
         continue;
       }
 

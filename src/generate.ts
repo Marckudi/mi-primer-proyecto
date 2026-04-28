@@ -190,13 +190,22 @@ export async function generateContent(contentType: ContentType): Promise<{
   const message = await anthropic.messages.create({
     model: "claude-opus-4-7",
     max_tokens: 4000,
-    thinking: { type: "adaptive" } as unknown as { type: "enabled"; budget_tokens: number },
+    thinking: { type: "enabled", budget_tokens: 8000 },
     system: SYSTEM_PROMPT,
     messages: [{ role: "user", content: template.prompt }],
   });
 
   const textBlock = message.content.find((b) => b.type === "text");
-  const raw = textBlock?.type === "text" ? textBlock.text : "";
+  const raw = textBlock?.type === "text" ? textBlock.text.trim() : "";
+
+  if (!raw) {
+    log.warn("Respuesta de texto vacía de la API — usando fallback");
+    return {
+      tipo: template.tipo,
+      needsImages: false,
+      generated: { caption: "", hashtags: [], imagePrompts: [] },
+    };
+  }
 
   try {
     const jsonStr = raw.match(/```(?:json)?\s*([\s\S]+?)\s*```/)?.[1] ?? raw;

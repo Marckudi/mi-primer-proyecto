@@ -1,6 +1,6 @@
 import { log } from "./logger.js";
 
-const BASE = "https://graph.facebook.com/v18.0";
+const BASE = "https://graph.facebook.com/v21.0";
 
 type ApiResponse = { id?: string; error?: { message: string; code?: number } };
 

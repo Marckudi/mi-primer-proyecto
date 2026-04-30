@@ -11,6 +11,11 @@ on:
     # Domingo: preview a las 18:00 UTC (20:00 CEST)
     - cron: '0 18 * * 0'
   workflow_dispatch:
+    inputs:
+      force_all:
+        description: 'Forzar publicación (ignorar horario)'
+        required: false
+        default: 'false'
 
 jobs:
   publish:
@@ -29,10 +34,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
 
       - name: Instalar dependencias
-        run: npm ci
+        run: npm install
 
       - name: Ejecutar bot
         env:
@@ -41,4 +45,5 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           INSTAGRAM_ACCESS_TOKEN: ${{ secrets.INSTAGRAM_ACCESS_TOKEN }}
           INSTAGRAM_BUSINESS_ACCOUNT_ID: ${{ secrets.INSTAGRAM_BUSINESS_ACCOUNT_ID }}
+          FORCE_ALL: ${{ github.event.inputs.force_all }}
         run: npm start

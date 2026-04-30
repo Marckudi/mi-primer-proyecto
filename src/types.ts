@@ -8,7 +8,8 @@ export type ContentType =
   | "educacion"
   | "carrusel_educativo"
   | "recap_semanal"
-  | "setup_mra";
+  | "setup_mra"
+  | "reel_viral";
 
 export type PostTipo = "post" | "reel" | "carrusel" | "story";
 export type PostStatus = "pending" | "published" | "failed";

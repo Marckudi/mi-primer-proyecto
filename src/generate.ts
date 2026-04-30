@@ -62,6 +62,35 @@ Responde ÚNICAMENTE con JSON:
 }`,
   },
 
+  reel_viral: {
+    tipo: "reel",
+    needsImages: true,
+    prompt: `Actúa como el mejor estratega de contenido viral de Instagram para finanzas. Tu objetivo es crear un reel que explote en el algoritmo en las primeras 24h.
+
+Crea un REEL VIRAL de alto impacto para AlphaVision AI sobre un evento de mercado real y urgente (puede ser: Fed, BCE, NFP, CPI, movimiento brusco de oro o divisa, noticia macro relevante). 
+Formato: breaking news financiero — urgente, datos reales, sin palabrería.
+Audiencia: traders españoles 25-45 años, esceptícos pero curiosos.
+
+Reglas del hook (primeros 3 segundos):
+- Empieza con un dato concreto que sorprenda (“el mercado acaba de...”, “+120 pips en...”)
+- Nunca empieces con “Hola” ni con pregunta
+- Usa tensión: algo pasó, tiene consecuencias, tú debes saberlo
+
+Estructura del reel (5 frames de imagen):
+1. Breaking: el evento (titular impactante + dato clave)
+2. Contexto: por qué importa ahora mismo
+3. Reacción del mercado: qué está pasando con el precio
+4. Setup MRA: cómo se posiciona AlphaVision AI ante esto
+5. Cierre: resultado o próximo movimiento esperado
+
+Responde ÚNICAMENTE con JSON:
+{
+  "caption": "caption ultra-viral con hook en primera línea, emojis estratégicos, CTA al final, máximo 2200 caracteres",
+  "hashtags": ["25 hashtags sin # mezclando nicho, trending y marca"],
+  "imagePrompts": ["JSON frame 1 breaking", "JSON frame 2 contexto", "JSON frame 3 mercado", "JSON frame 4 setup MRA", "JSON frame 5 cierre"]
+}`,
+  },
+
   carrusel_top3: {
     tipo: "carrusel",
     needsImages: true,

@@ -8,6 +8,7 @@ import type { ContentType } from "./types.js";
 
 const SLOT_WINDOW_MINUTES = 90;
 const FORCE_ALL = process.env.FORCE_ALL_SLOTS === "true";
+const CONTENT_TYPE_OVERRIDE = process.env.CONTENT_TYPE_OVERRIDE as ContentType | undefined;
 
 function getActiveSlots(
   schedule: Record<string, ContentType>,
@@ -25,10 +26,41 @@ function getActiveSlots(
   });
 }
 
+async function runSingleType(contentType: ContentType): Promise<void> {
+  log.info(`Modo override: ejecutando directamente → ${contentType}`);
+  const hora = new Date().toUTCString();
+
+  const { generated, tipo, needsImages } = await generateContent(contentType);
+
+  let mediaUrls: string[] = [];
+  if (needsImages && generated.imagePrompts.length > 0) {
+    mediaUrls = await generateAndUploadImages(generated.imagePrompts);
+  }
+
+  if (mediaUrls.length === 0) {
+    log.error("Sin imágenes para publicar — abortando");
+    return;
+  }
+
+  const postId = await publishToInstagram(
+    tipo,
+    generated.caption,
+    generated.hashtags,
+    mediaUrls,
+  );
+
+  log.ok(`✅ Publicado en Instagram: ${contentType} → ID ${postId}`);
+}
+
 async function main(): Promise<void> {
   log.info("══════════════════════════════════════════════");
   log.info("  AlphaVision AI — Instagram Auto-Publish");
   log.info("══════════════════════════════════════════════");
+
+  if (CONTENT_TYPE_OVERRIDE) {
+    await runSingleType(CONTENT_TYPE_OVERRIDE);
+    return;
+  }
 
   const now = new Date();
   const today = getDateKey(now);
@@ -46,7 +78,6 @@ async function main(): Promise<void> {
 
   for (const [hora, contentType] of activeSlots) {
     log.info(`Procesando slot ${hora} (${contentType})...`);
-
     try {
       const { generated, tipo, needsImages } = await generateContent(contentType);
 
@@ -59,8 +90,6 @@ async function main(): Promise<void> {
         log.error(`Sin imágenes para publicar en slot ${hora} — abortando este slot`);
         continue;
       }
-
-      log.info(`Publicando: ${hora} — ${tipo} (${contentType})`);
 
       const postId = await publishToInstagram(
         tipo,

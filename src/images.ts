@@ -1,4 +1,8 @@
 import { createClient } from "@supabase/supabase-js";
+import { execSync } from "child_process";
+import { writeFileSync, readFileSync, mkdirSync, rmSync } from "fs";
+import { tmpdir } from "os";
+import { join } from "path";
 import sharp from "sharp";
 import { log } from "./logger.js";
 
@@ -54,18 +58,18 @@ function escapeXml(text: string): string {
     .replace(/'/g, "&apos;");
 }
 
-function generateBreakingNewsSVG(data: ImageData): string {
-  const W = 1080;
-  const H = 1080;
+function generateBreakingNewsSVG(data: ImageData, width = 1080, height = 1080): string {
+  const W = width;
+  const H = height;
+  const padTop = height === 1920 ? 320 : 0; // extra top padding for vertical format
 
-  // Headline sizing
   const headlineLines = wrapText(data.headline, 18);
   const fontSize =
     headlineLines.length <= 2 ? 96 :
     headlineLines.length === 3 ? 82 :
     headlineLines.length === 4 ? 68 : 58;
   const lineHeight = fontSize * 1.12;
-  const headlineY = 215;
+  const headlineY = 215 + padTop;
 
   const headlineSvg = headlineLines
     .map((line, i) =>
@@ -73,7 +77,6 @@ function generateBreakingNewsSVG(data: ImageData): string {
     )
     .join("\n  ");
 
-  // Subtitle
   const subtitleY = headlineY + headlineLines.length * lineHeight + 52;
   const subtitleLines = data.subtitle ? wrapText(data.subtitle, 50) : [];
   const subtitleSvg = subtitleLines
@@ -82,8 +85,7 @@ function generateBreakingNewsSVG(data: ImageData): string {
     )
     .join("\n  ");
 
-  // Stats boxes pinned to bottom
-  const statsY = 882;
+  const statsY = H - 198;
   const stats = (data.stats ?? []).slice(0, 2);
   const statsSvg = stats
     .map((stat, i) => {
@@ -105,60 +107,94 @@ function generateBreakingNewsSVG(data: ImageData): string {
   </defs>
   <rect width="${W}" height="${H}" fill="#080808"/>
   <rect width="${W}" height="${H}" fill="url(#vignette)"/>
-
-  <!-- Brand -->
-  <text x="60" y="88" font-family="Liberation Sans,Arial Black,Impact,sans-serif" font-size="28" font-weight="900" fill="#E8553E" letter-spacing="2">ALPHAVISION.AI</text>
-
-  <!-- Breaking badge -->
-  <rect x="808" y="48" width="218" height="54" rx="27" fill="#1c1c1c"/>
-  <circle cx="836" cy="75" r="7" fill="#D44"/>
-  <text x="852" y="81" font-family="Liberation Sans,Arial Black,sans-serif" font-size="19" font-weight="900" fill="white">&#x26A1; BREAKING</text>
-
-  <!-- Headline -->
+  <text x="60" y="${88 + padTop}" font-family="Liberation Sans,Arial Black,Impact,sans-serif" font-size="28" font-weight="900" fill="#E8553E" letter-spacing="2">ALPHAVISION.AI</text>
+  <rect x="808" y="${48 + padTop}" width="218" height="54" rx="27" fill="#1c1c1c"/>
+  <circle cx="836" cy="${75 + padTop}" r="7" fill="#D44"/>
+  <text x="852" y="${81 + padTop}" font-family="Liberation Sans,Arial Black,sans-serif" font-size="19" font-weight="900" fill="white">&#x26A1; BREAKING</text>
   ${headlineSvg}
-
-  <!-- Subtitle -->
   ${subtitleSvg}
-
-  <!-- Stats -->
   ${statsSvg}
 </svg>`;
 }
 
+async function uploadToSupabase(buffer: Buffer, filename: string, contentType: string): Promise<string | null> {
+  const supabase = getSupabase();
+  const { data, error } = await supabase.storage
+    .from("instagram-media")
+    .upload(filename, buffer, { contentType, cacheControl: "3600" });
+  if (error) { log.error(`Error subiendo a Supabase: ${error.message}`); return null; }
+  if (data) {
+    const { data: urlData } = supabase.storage.from("instagram-media").getPublicUrl(filename);
+    return urlData.publicUrl;
+  }
+  return null;
+}
+
 export async function generateAndUploadImages(prompts: string[]): Promise<string[]> {
   const urls: string[] = [];
-  const supabase = getSupabase();
-
   for (const prompt of prompts.slice(0, 5)) {
-    log.info(`Generando imagen breaking news: ${prompt.substring(0, 70)}...`);
-
+    log.info(`Generando imagen: ${prompt.substring(0, 70)}...`);
     try {
       const data = parseImagePrompt(prompt);
       const svg = generateBreakingNewsSVG(data);
       const imageBuffer = await sharp(Buffer.from(svg)).png().toBuffer();
-
       const filename = `instagram/${Date.now()}-${Math.random().toString(36).slice(2, 9)}.png`;
-
-      const { data: uploadData, error } = await supabase.storage
-        .from("instagram-media")
-        .upload(filename, imageBuffer, { contentType: "image/png", cacheControl: "3600" });
-
-      if (error) {
-        log.error(`Error subiendo imagen a Supabase: ${error.message}`);
-        continue;
-      }
-
-      if (uploadData) {
-        const { data: urlData } = supabase.storage
-          .from("instagram-media")
-          .getPublicUrl(filename);
-        urls.push(urlData.publicUrl);
-        log.ok(`Imagen lista: ${urlData.publicUrl}`);
-      }
+      const url = await uploadToSupabase(imageBuffer, filename, "image/png");
+      if (url) { urls.push(url); log.ok(`Imagen lista: ${url}`); }
     } catch (err) {
       log.error(`Error en imagen: ${err instanceof Error ? err.message : String(err)}`);
     }
   }
-
   return urls;
+}
+
+export async function generateAndUploadReelVideo(prompts: string[]): Promise<string[]> {
+  const tmpDir = join(tmpdir(), `reel-${Date.now()}`);
+  mkdirSync(tmpDir, { recursive: true });
+
+  try {
+    const framePrompts = prompts.slice(0, 5);
+    if (framePrompts.length === 0) return [];
+
+    // Generate 1080x1920 PNG frames (vertical Reel format)
+    const framePaths: string[] = [];
+    for (let i = 0; i < framePrompts.length; i++) {
+      const data = parseImagePrompt(framePrompts[i]);
+      const svg = generateBreakingNewsSVG(data, 1080, 1920);
+      const pngBuffer = await sharp(Buffer.from(svg)).png().toBuffer();
+      const framePath = join(tmpDir, `frame${i}.png`);
+      writeFileSync(framePath, pngBuffer);
+      log.info(`Frame ${i + 1}/${framePrompts.length} generado`);
+      framePaths.push(framePath);
+    }
+
+    // ffmpeg concat list (each frame shown 3 seconds)
+    const concatLines = framePaths.flatMap((p) => [`file '${p}'`, "duration 3"]);
+    concatLines.push(`file '${framePaths[framePaths.length - 1]}'`); // required by concat demuxer
+    const concatPath = join(tmpDir, "concat.txt");
+    writeFileSync(concatPath, concatLines.join("\n"));
+
+    // Build MP4 with ffmpeg
+    const videoPath = join(tmpDir, "reel.mp4");
+    execSync(
+      `ffmpeg -f concat -safe 0 -i "${concatPath}" ` +
+      `-f lavfi -i "anullsrc=channel_layout=stereo:sample_rate=44100" ` +
+      `-c:v libx264 -preset fast -crf 23 -pix_fmt yuv420p -r 30 ` +
+      `-c:a aac -b:a 128k -map 0:v -map 1:a -shortest ` +
+      `-y "${videoPath}"`,
+      { stdio: "pipe", timeout: 120_000 },
+    );
+    log.info("Video MP4 generado con ffmpeg");
+
+    const videoBuffer = readFileSync(videoPath);
+    const filename = `instagram/reels/${Date.now()}-${Math.random().toString(36).slice(2, 9)}.mp4`;
+    const url = await uploadToSupabase(videoBuffer, filename, "video/mp4");
+    if (url) { log.ok(`Video reel listo: ${url}`); return [url]; }
+    return [];
+  } catch (err) {
+    log.error(`Error generando video: ${err instanceof Error ? err.message : String(err)}`);
+    return [];
+  } finally {
+    try { rmSync(tmpDir, { recursive: true, force: true }); } catch { /* ignore */ }
+  }
 }

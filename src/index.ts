@@ -3,6 +3,7 @@ import { getTodaySchedule, getDateKey } from "./calendar.js";
 import { generateContent } from "./generate.js";
 import { generateAndUploadImages, generateAndUploadReelVideo } from "./images.js";
 import { publishToInstagram } from "./instagram.js";
+import { publishToTikTok } from "./tiktok.js";
 import { log } from "./logger.js";
 import type { ContentType } from "./types.js";
 
@@ -22,7 +23,7 @@ function getActiveSlots(schedule: Record<string, ContentType>, now: Date): [stri
   });
 }
 
-async function processSlot(contentType: ContentType): Promise<string> {
+async function processSlot(contentType: ContentType): Promise<void> {
   const { generated, tipo, needsImages } = await generateContent(contentType);
 
   let mediaUrls: string[] = [];
@@ -34,18 +35,29 @@ async function processSlot(contentType: ContentType): Promise<string> {
 
   if (mediaUrls.length === 0) throw new Error("Sin media para publicar");
 
-  return publishToInstagram(tipo, generated.caption, generated.hashtags, mediaUrls);
+  // Publicar en Instagram
+  const igId = await publishToInstagram(tipo, generated.caption, generated.hashtags, mediaUrls);
+  log.ok(`Instagram: ID ${igId}`);
+
+  // Publicar en TikTok si es reel
+  if (tipo === "reel") {
+    try {
+      await publishToTikTok(mediaUrls[0], generated.caption, generated.hashtags);
+    } catch (err) {
+      // TikTok falla de forma aislada — no afecta a Instagram
+      log.error(`TikTok error (Instagram ya publicado): ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
 }
 
 async function main(): Promise<void> {
   log.info("══════════════════════════════════════════════");
-  log.info("  AlphaVision AI — Instagram Auto-Publish");
+  log.info("  AlphaVision AI — Instagram + TikTok Auto-Publish");
   log.info("══════════════════════════════════════════════");
 
   if (CONTENT_TYPE_OVERRIDE) {
-    log.info(`Modo override: ejecutando directamente → ${CONTENT_TYPE_OVERRIDE}`);
-    const postId = await processSlot(CONTENT_TYPE_OVERRIDE);
-    log.ok(`✅ Publicado: ${CONTENT_TYPE_OVERRIDE} → ID ${postId}`);
+    log.info(`Modo override: ${CONTENT_TYPE_OVERRIDE}`);
+    await processSlot(CONTENT_TYPE_OVERRIDE);
     return;
   }
 
@@ -66,8 +78,8 @@ async function main(): Promise<void> {
   for (const [hora, contentType] of activeSlots) {
     log.info(`Procesando slot ${hora} (${contentType})...`);
     try {
-      const postId = await processSlot(contentType);
-      log.ok(`✅ Publicado: ${hora} → ID ${postId}`);
+      await processSlot(contentType);
+      log.ok(`✅ Slot ${hora} completado`);
     } catch (err) {
       log.error(`Error en slot ${hora}: ${err instanceof Error ? err.message : String(err)}`);
     }

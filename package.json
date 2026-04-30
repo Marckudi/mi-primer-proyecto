@@ -1,10 +1,11 @@
 {
   "name": "alphavision-instagram-automation",
   "version": "1.0.0",
-  "description": "Instagram automation for AlphaVision AI — generates and publishes content daily",
+  "description": "Instagram automation for AlphaVision AI",
   "type": "module",
   "scripts": {
     "start": "tsx src/index.ts",
+    "comments": "tsx src/comments-runner.ts",
     "setup": "bash scripts/setup-cron.sh"
   },
   "dependencies": {

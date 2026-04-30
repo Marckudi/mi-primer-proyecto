@@ -30,6 +30,41 @@ interface Template {
 }
 
 const TEMPLATES: Record<ContentType, Template> = {
+
+  reel_marca: {
+    tipo: "reel",
+    needsImages: true,
+    prompt: `Actúa como el mejor director creativo de una agencia de marketing financiero. Tu misión: crear el reel de presentación de AlphaVision AI que convierta espectadores en seguidores y seguidores en clientes.
+
+El reel debe explicar QUÉ ES AlphaVision AI, QUÉ OFRECE, POR QUÉ USARLO y QUÉ BENEFICIOS aporta al trader, sin prometer ganancias garantizadas.
+
+Audiencia: traders españoles 25-45 años que pierden dinero o tiempo por operar sin sistema.
+
+Estructura de 5 frames (breaking news visual):
+1. PROBLEMA: el dolor del trader promedio sin sistema (dato duro, chocante)
+2. SOLUCIÓN: qué es AlphaVision AI y cómo resuelve ese problema
+3. CÓMO FUNCIONA: Score MRA + Ventana MRA + AURA explicados en una sola pantalla
+4. BENEFICIOS: qué gana el cliente (claridad, disciplina, sistema probado, no estar pegado a pantallas)
+5. CTA: por qué seguir la cuenta ahora mismo
+
+Reglas del hook (frame 1):
+- Empieza con un dato que duela: « el 80% de los traders minoristas pierde dinero» o similar real
+- Crea urgencia: si no tienes un sistema, estás improvisando con tu dinero
+
+Caption:
+- Hook en la primera línea que frene el scroll
+- Explica brevemente la propuesta de valor
+- CTA claro: comenta MRA para recibir la guía completa / síguenos
+- Máximo 2200 caracteres
+
+Responde ÚNICAMENTE con JSON:
+{
+  "caption": "caption ultra-persuasiva, hook en primera línea, emojis estratégicos, CTA al final",
+  "hashtags": ["30 hashtags sin # mezclando trading, forex, finanzas personales, marca"],
+  "imagePrompts": ["JSON frame 1 problema", "JSON frame 2 solucion", "JSON frame 3 como funciona", "JSON frame 4 beneficios", "JSON frame 5 CTA"]
+}`,
+  },
+
   setup_del_dia: {
     tipo: "post",
     needsImages: true,
@@ -119,7 +154,6 @@ Responde ÚNICAMENTE con JSON:
     tipo: "carrusel",
     needsImages: true,
     prompt: `Genera un carrusel de análisis post-sesión MRA del día usando las noticias actuales.
-Muestra resultado real, sin manipulación.
 
 Responde ÚNICAMENTE con JSON:
 {
@@ -221,7 +255,7 @@ export async function generateContent(contentType: ContentType): Promise<{
   const raw = textBlock?.type === "text" ? textBlock.text.trim() : "";
 
   if (!raw) {
-    log.warn("Respuesta vacía de la API — usando fallback");
+    log.warn("Respuesta vacía — usando fallback");
     return { tipo: template.tipo, needsImages: false, generated: { caption: "", hashtags: [], imagePrompts: [] } };
   }
 

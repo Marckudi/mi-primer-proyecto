@@ -23,17 +23,18 @@ interface ImageData {
   bullets?: string[];
 }
 
+// Accent color per badge type
 const BADGE_ACCENT: Record<string, string> = {
-  "GOLD":    "#C8972A",
+  "GOLD":     "#C8972A",
   "BREAKING": "#E8553E",
-  "CRYPTO":  "#00B4D8",
-  "MACRO":   "#8B5CF6",
-  "SEÑAL":   "#10B981",
-  "MRA":     "#10B981",
-  "FOREX":   "#F59E0B",
+  "CRYPTO":   "#00B4D8",
+  "MACRO":    "#8B5CF6",
+  "SEÑAL":    "#10B981",
+  "MRA":      "#10B981",
+  "FOREX":    "#F59E0B",
   "ANÁLISIS": "#3B82F6",
-  "EDUCACI": "#3B82F6",
-  "ALPHA":   "#C8972A",
+  "EDUCACI":  "#3B82F6",
+  "ALPHA":    "#C8972A",
 };
 
 function accentFor(badge?: string): string {
@@ -49,13 +50,13 @@ function parseImagePrompt(prompt: string): ImageData {
   try {
     const data = JSON.parse(prompt) as ImageData;
     return {
-      badge:       data.badge       ? String(data.badge)       : undefined,
-      badgeEmoji:  data.badgeEmoji  ? String(data.badgeEmoji)  : undefined,
-      headline:    String(data.headline ?? prompt),
-      subtitle:    data.subtitle    ? String(data.subtitle)    : undefined,
-      stats:       Array.isArray(data.stats)   ? data.stats             : undefined,
-      annotation:  data.annotation  ? String(data.annotation)  : undefined,
-      bullets:     Array.isArray(data.bullets) ? data.bullets.slice(0, 4) : undefined,
+      badge:      data.badge      ? String(data.badge)      : undefined,
+      badgeEmoji: data.badgeEmoji ? String(data.badgeEmoji) : undefined,
+      headline:   String(data.headline ?? prompt),
+      subtitle:   data.subtitle   ? String(data.subtitle)   : undefined,
+      stats:      Array.isArray(data.stats)   ? data.stats              : undefined,
+      annotation: data.annotation ? String(data.annotation) : undefined,
+      bullets:    Array.isArray(data.bullets) ? data.bullets.slice(0, 4) : undefined,
     };
   } catch {
     return { headline: prompt };
@@ -91,57 +92,61 @@ function spanishDate(): string {
   return `${day} ${months[now.getMonth()]} ${now.getFullYear()}`;
 }
 
+// Strip emoji characters so they don’t render as □ boxes in Liberation Sans
+function stripEmoji(text: string): string {
+  return text.replace(/[\u{1F000}-\u{1FFFF}\u{2600}-\u{27FF}\u{2B00}-\u{2BFF}]/gu, "").trim();
+}
+
 function buildSVG(data: ImageData, W = 1080, H = 1080): string {
   const isReel  = H === 1920;
   const padTop  = isReel ? 300 : 0;
   const accent  = accentFor(data.badge);
-  const accentDim = accent + "22"; // ~13% opacity fill for badge
   const dateStr = spanishDate();
 
-  // ── Headline ──────────────────────────────────────────────────────────────
-  const hlLines   = wrapText(data.headline, 22);
-  const hlSize    = hlLines.length <= 2 ? 86 : hlLines.length === 3 ? 74 : hlLines.length === 4 ? 64 : 56;
-  const hlLineH   = hlSize * 1.15;
+  // ── Headline sizing ──────────────────────────────────────────────────────────────
+  const hlLines = wrapText(data.headline, 22);
+  const hlSize  = hlLines.length <= 2 ? 86 : hlLines.length === 3 ? 74 : hlLines.length === 4 ? 64 : 56;
+  const hlLineH = hlSize * 1.15;
 
-  // ── Layout: cascade Y positions ──────────────────────────────────────────
+  // ── Cascade Y layout ────────────────────────────────────────────────────────────
   let y = 72 + padTop;
 
-  const topBarTextY = y + 10;          y += 52;
-  const sepY        = y;               y += 26;
-  const badgeRY     = y;    const bH = 50;  y += bH + 44;
-  const hlY         = y + hlSize;      y += hlLines.length * hlLineH + 38;
-  const divY        = y;               y += 30;
+  const topBarY = y + 10;                        y += 52;
+  const sepY    = y;                             y += 24;
+  const badgeRY = y;  const bH = 50;            y += bH + 44;
+  const hlY     = y + hlSize;                   y += hlLines.length * hlLineH + 36;
+  const divY    = y;                             y += 28;
 
-  const subLines  = data.subtitle ? wrapText(data.subtitle, 46) : [];
-  const subY      = y;  const subLH = 44;  y += subLines.length * subLH + 44;
+  const subLines = data.subtitle ? wrapText(data.subtitle, 46) : [];
+  const subY     = y;  const subLH = 44;        y += subLines.length * subLH + 44;
 
-  const stats     = (data.stats ?? []).slice(0, 2);
-  const stY       = y;  const stH = 132;
+  const stats    = (data.stats ?? []).slice(0, 2);
+  const stY      = y;  const stH = 132;
   if (stats.length) y += stH + 20;
 
-  const annY      = y;  const annH = 62;
+  const annY     = y;  const annH = 62;
   if (data.annotation) y += annH + 18;
 
-  const bullY     = y;
+  const bullY    = y;
 
-  // ── Badge text ────────────────────────────────────────────────────────────
-  const badgeLabel = `${data.badgeEmoji ?? ""} ${data.badge ?? "BREAKING"}`.trim();
-  const bTextW     = Math.max(badgeLabel.length * 13 + 48, 120);
+  // ── Badge label (no emoji — Liberation Sans has no emoji glyphs) ─────────────
+  const badgeLabel = stripEmoji(`${data.badgeEmoji ?? ""} ${data.badge ?? "BREAKING"}`);
+  const bTextW    = Math.max(badgeLabel.length * 14 + 52, 130);
 
-  // ── Headline SVG ─────────────────────────────────────────────────────────
+  // ── Headline ───────────────────────────────────────────────────────────────
   const hlSvg = hlLines.map((ln, i) =>
     `<text x="60" y="${hlY + i * hlLineH}" font-family="Liberation Sans,Arial Black,Impact,sans-serif" font-size="${hlSize}" font-weight="900" fill="white">${escapeXml(ln)}</text>`
   ).join("\n  ");
 
-  // ── Subtitle SVG ─────────────────────────────────────────────────────────
+  // ── Subtitle ───────────────────────────────────────────────────────────────
   const subSvg = subLines.map((ln, i) =>
     `<text x="60" y="${subY + i * subLH}" font-family="Liberation Sans,Arial,sans-serif" font-size="29" font-style="italic" fill="#888888">${escapeXml(ln)}</text>`
   ).join("\n  ");
 
-  // ── Stats boxes ──────────────────────────────────────────────────────────
-  const boxW = stats.length === 2 ? 488 : 960;
+  // ── Stats boxes ──────────────────────────────────────────────────────────────
+  const boxW    = stats.length === 2 ? 488 : 960;
   const statsSvg = stats.map((s, i) => {
-    const x  = 60 + i * (boxW + 24);
+    const x     = 60 + i * (boxW + 24);
     const vSize = s.value.length > 7 ? 46 : s.value.length > 5 ? 54 : 62;
     return `
   <rect x="${x}" y="${stY}" width="${boxW}" height="${stH}" rx="6" fill="#111111"/>
@@ -149,15 +154,15 @@ function buildSVG(data: ImageData, W = 1080, H = 1080): string {
   <text x="${x + 22}" y="${stY + stH - 18}" font-family="Liberation Sans,Arial Black,Impact,sans-serif" font-size="${vSize}" font-weight="900" fill="white">${escapeXml(s.value)}</text>`;
   }).join("");
 
-  // ── Annotation row ───────────────────────────────────────────────────────
+  // ── Annotation row ───────────────────────────────────────────────────────────
   const annSvg = data.annotation ? `
   <rect x="60" y="${annY}" width="${W - 120}" height="${annH}" rx="6" fill="#111111"/>
   <text x="86" y="${annY + 40}" font-family="Liberation Sans,Arial,sans-serif" font-size="25" font-weight="600" fill="${accent}">→ ${escapeXml(data.annotation)}</text>` : "";
 
-  // ── Bullets ──────────────────────────────────────────────────────────────
+  // ── Bullets ───────────────────────────────────────────────────────────────
   const bullSvg = (data.bullets ?? []).map((b, i) => {
-    const txt = b.length > 56 ? b.slice(0, 54) + "…" : b;
-    return `<text x="60" y="${bullY + i * 40 + 30}" font-family="Liberation Sans,Arial,sans-serif" font-size="23" fill="#666666">${escapeXml(txt)}</text>`;
+    const txt = stripEmoji(b.length > 58 ? b.slice(0, 56) + "…" : b);
+    return `<text x="60" y="${bullY + i * 42 + 30}" font-family="Liberation Sans,Arial,sans-serif" font-size="23" fill="#666666">${escapeXml(txt)}</text>`;
   }).join("\n  ");
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
@@ -167,22 +172,23 @@ function buildSVG(data: ImageData, W = 1080, H = 1080): string {
       <stop offset="100%" stop-color="#080604"/>
     </radialGradient>
   </defs>
+  <!-- background -->
   <rect width="${W}" height="${H}" fill="#080604"/>
   <rect width="${W}" height="${H}" fill="url(#bgGlow)"/>
   <!-- top bar -->
-  <text x="60" y="${topBarTextY}" font-family="Liberation Sans,Arial Black,sans-serif" font-size="23" font-weight="900" fill="#C8972A" letter-spacing="3">ALPHAVISION.AI</text>
-  <text x="${W - 192}" y="${topBarTextY}" font-family="Liberation Sans,Arial,sans-serif" font-size="20" fill="#505050">${escapeXml(dateStr)}</text>
-  <circle cx="${W - 52}" cy="${topBarTextY - 7}" r="15" fill="none" stroke="${accent}" stroke-width="2"/>
-  <circle cx="${W - 52}" cy="${topBarTextY - 7}" r="6" fill="${accent}"/>
-  <!-- top separator -->
+  <text x="60" y="${topBarY}" font-family="Liberation Sans,Arial Black,sans-serif" font-size="23" font-weight="900" fill="#C8972A" letter-spacing="3">ALPHAVISION.AI</text>
+  <text x="${W - 196}" y="${topBarY}" font-family="Liberation Sans,Arial,sans-serif" font-size="20" fill="#505050">${escapeXml(dateStr)}</text>
+  <circle cx="${W - 50}" cy="${topBarY - 7}" r="15" fill="none" stroke="${accent}" stroke-width="2"/>
+  <circle cx="${W - 50}" cy="${topBarY - 7}" r="6" fill="${accent}"/>
+  <!-- separator -->
   <rect x="60" y="${sepY}" width="${W - 120}" height="1" fill="#1e1810"/>
-  <!-- badge -->
-  <rect x="60" y="${badgeRY}" width="${bTextW}" height="${bH}" rx="${bH / 2}" fill="${accentDim}" stroke="${accent}" stroke-width="1.5"/>
+  <!-- badge: fill-opacity instead of 8-digit hex (SVG doesn’t support it) -->
+  <rect x="60" y="${badgeRY}" width="${bTextW}" height="${bH}" rx="${bH / 2}" fill="${accent}" fill-opacity="0.15" stroke="${accent}" stroke-width="1.5"/>
   <text x="${60 + bTextW / 2}" y="${badgeRY + 33}" text-anchor="middle" font-family="Liberation Sans,Arial Black,sans-serif" font-size="20" font-weight="900" fill="${accent}">${escapeXml(badgeLabel)}</text>
   <!-- headline -->
   ${hlSvg}
-  <!-- divider -->
-  <rect x="60" y="${divY}" width="210" height="2" rx="1" fill="${accent}"/>
+  <!-- gold divider -->
+  <rect x="60" y="${divY}" width="220" height="2" rx="1" fill="${accent}"/>
   <!-- subtitle -->
   ${subSvg}
   <!-- stats -->

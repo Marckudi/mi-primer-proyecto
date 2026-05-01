@@ -14,18 +14,48 @@ function getSupabase() {
 }
 
 interface ImageData {
+  badge?: string;
+  badgeEmoji?: string;
   headline: string;
   subtitle?: string;
   stats?: Array<{ label: string; value: string }>;
+  annotation?: string;
+  bullets?: string[];
+}
+
+const BADGE_ACCENT: Record<string, string> = {
+  "GOLD":    "#C8972A",
+  "BREAKING": "#E8553E",
+  "CRYPTO":  "#00B4D8",
+  "MACRO":   "#8B5CF6",
+  "SEÑAL":   "#10B981",
+  "MRA":     "#10B981",
+  "FOREX":   "#F59E0B",
+  "ANÁLISIS": "#3B82F6",
+  "EDUCACI": "#3B82F6",
+  "ALPHA":   "#C8972A",
+};
+
+function accentFor(badge?: string): string {
+  if (!badge) return "#E8553E";
+  const up = badge.toUpperCase();
+  for (const [key, color] of Object.entries(BADGE_ACCENT)) {
+    if (up.includes(key)) return color;
+  }
+  return "#C8972A";
 }
 
 function parseImagePrompt(prompt: string): ImageData {
   try {
     const data = JSON.parse(prompt) as ImageData;
     return {
-      headline: String(data.headline ?? prompt),
-      subtitle: data.subtitle ? String(data.subtitle) : undefined,
-      stats: Array.isArray(data.stats) ? data.stats : undefined,
+      badge:       data.badge       ? String(data.badge)       : undefined,
+      badgeEmoji:  data.badgeEmoji  ? String(data.badgeEmoji)  : undefined,
+      headline:    String(data.headline ?? prompt),
+      subtitle:    data.subtitle    ? String(data.subtitle)    : undefined,
+      stats:       Array.isArray(data.stats)   ? data.stats             : undefined,
+      annotation:  data.annotation  ? String(data.annotation)  : undefined,
+      bullets:     Array.isArray(data.bullets) ? data.bullets.slice(0, 4) : undefined,
     };
   } catch {
     return { headline: prompt };
@@ -38,12 +68,8 @@ function wrapText(text: string, maxChars: number): string[] {
   let current = "";
   for (const word of words) {
     const test = current ? `${current} ${word}` : word;
-    if (test.length <= maxChars) {
-      current = test;
-    } else {
-      if (current) lines.push(current);
-      current = word;
-    }
+    if (test.length <= maxChars) { current = test; }
+    else { if (current) lines.push(current); current = word; }
   }
   if (current) lines.push(current);
   return lines.length ? lines : [""];
@@ -58,62 +84,115 @@ function escapeXml(text: string): string {
     .replace(/'/g, "&apos;");
 }
 
-function generateBreakingNewsSVG(data: ImageData, width = 1080, height = 1080): string {
-  const W = width;
-  const H = height;
-  const padTop = height === 1920 ? 320 : 0; // extra top padding for vertical format
+function spanishDate(): string {
+  const now = new Date();
+  const day = String(now.getDate()).padStart(2, "0");
+  const months = ["ENE","FEB","MAR","ABR","MAY","JUN","JUL","AGO","SEP","OCT","NOV","DIC"];
+  return `${day} ${months[now.getMonth()]} ${now.getFullYear()}`;
+}
 
-  const headlineLines = wrapText(data.headline, 18);
-  const fontSize =
-    headlineLines.length <= 2 ? 96 :
-    headlineLines.length === 3 ? 82 :
-    headlineLines.length === 4 ? 68 : 58;
-  const lineHeight = fontSize * 1.12;
-  const headlineY = 215 + padTop;
+function buildSVG(data: ImageData, W = 1080, H = 1080): string {
+  const isReel  = H === 1920;
+  const padTop  = isReel ? 300 : 0;
+  const accent  = accentFor(data.badge);
+  const accentDim = accent + "22"; // ~13% opacity fill for badge
+  const dateStr = spanishDate();
 
-  const headlineSvg = headlineLines
-    .map((line, i) =>
-      `<text x="60" y="${headlineY + i * lineHeight}" font-family="Liberation Sans,Arial Black,Impact,sans-serif" font-size="${fontSize}" font-weight="900" fill="white">${escapeXml(line)}</text>`
-    )
-    .join("\n  ");
+  // ── Headline ──────────────────────────────────────────────────────────────
+  const hlLines   = wrapText(data.headline, 22);
+  const hlSize    = hlLines.length <= 2 ? 86 : hlLines.length === 3 ? 74 : hlLines.length === 4 ? 64 : 56;
+  const hlLineH   = hlSize * 1.15;
 
-  const subtitleY = headlineY + headlineLines.length * lineHeight + 52;
-  const subtitleLines = data.subtitle ? wrapText(data.subtitle, 50) : [];
-  const subtitleSvg = subtitleLines
-    .map((line, i) =>
-      `<text x="60" y="${subtitleY + i * 40}" font-family="Liberation Mono,Courier New,monospace" font-size="29" fill="#888888">${escapeXml(line)}</text>`
-    )
-    .join("\n  ");
+  // ── Layout: cascade Y positions ──────────────────────────────────────────
+  let y = 72 + padTop;
 
-  const statsY = H - 198;
-  const stats = (data.stats ?? []).slice(0, 2);
-  const statsSvg = stats
-    .map((stat, i) => {
-      const x = 60 + i * 490;
-      return `
-  <rect x="${x}" y="${statsY}" width="460" height="152" rx="4" fill="#141414"/>
-  <rect x="${x}" y="${statsY}" width="4" height="152" rx="2" fill="#C0392B"/>
-  <text x="${x + 22}" y="${statsY + 44}" font-family="Liberation Sans,Arial,sans-serif" font-size="19" font-weight="600" fill="#666666" letter-spacing="2">${escapeXml(stat.label.toUpperCase())}</text>
-  <text x="${x + 22}" y="${statsY + 120}" font-family="Liberation Sans,Arial Black,Impact,sans-serif" font-size="62" font-weight="900" fill="white">${escapeXml(stat.value)}</text>`;
-    })
-    .join("");
+  const topBarTextY = y + 10;          y += 52;
+  const sepY        = y;               y += 26;
+  const badgeRY     = y;    const bH = 50;  y += bH + 44;
+  const hlY         = y + hlSize;      y += hlLines.length * hlLineH + 38;
+  const divY        = y;               y += 30;
+
+  const subLines  = data.subtitle ? wrapText(data.subtitle, 46) : [];
+  const subY      = y;  const subLH = 44;  y += subLines.length * subLH + 44;
+
+  const stats     = (data.stats ?? []).slice(0, 2);
+  const stY       = y;  const stH = 132;
+  if (stats.length) y += stH + 20;
+
+  const annY      = y;  const annH = 62;
+  if (data.annotation) y += annH + 18;
+
+  const bullY     = y;
+
+  // ── Badge text ────────────────────────────────────────────────────────────
+  const badgeLabel = `${data.badgeEmoji ?? ""} ${data.badge ?? "BREAKING"}`.trim();
+  const bTextW     = Math.max(badgeLabel.length * 13 + 48, 120);
+
+  // ── Headline SVG ─────────────────────────────────────────────────────────
+  const hlSvg = hlLines.map((ln, i) =>
+    `<text x="60" y="${hlY + i * hlLineH}" font-family="Liberation Sans,Arial Black,Impact,sans-serif" font-size="${hlSize}" font-weight="900" fill="white">${escapeXml(ln)}</text>`
+  ).join("\n  ");
+
+  // ── Subtitle SVG ─────────────────────────────────────────────────────────
+  const subSvg = subLines.map((ln, i) =>
+    `<text x="60" y="${subY + i * subLH}" font-family="Liberation Sans,Arial,sans-serif" font-size="29" font-style="italic" fill="#888888">${escapeXml(ln)}</text>`
+  ).join("\n  ");
+
+  // ── Stats boxes ──────────────────────────────────────────────────────────
+  const boxW = stats.length === 2 ? 488 : 960;
+  const statsSvg = stats.map((s, i) => {
+    const x  = 60 + i * (boxW + 24);
+    const vSize = s.value.length > 7 ? 46 : s.value.length > 5 ? 54 : 62;
+    return `
+  <rect x="${x}" y="${stY}" width="${boxW}" height="${stH}" rx="6" fill="#111111"/>
+  <text x="${x + 22}" y="${stY + 32}" font-family="Liberation Sans,Arial,sans-serif" font-size="17" font-weight="600" fill="#555555" letter-spacing="1">${escapeXml(s.label.toUpperCase())}</text>
+  <text x="${x + 22}" y="${stY + stH - 18}" font-family="Liberation Sans,Arial Black,Impact,sans-serif" font-size="${vSize}" font-weight="900" fill="white">${escapeXml(s.value)}</text>`;
+  }).join("");
+
+  // ── Annotation row ───────────────────────────────────────────────────────
+  const annSvg = data.annotation ? `
+  <rect x="60" y="${annY}" width="${W - 120}" height="${annH}" rx="6" fill="#111111"/>
+  <text x="86" y="${annY + 40}" font-family="Liberation Sans,Arial,sans-serif" font-size="25" font-weight="600" fill="${accent}">→ ${escapeXml(data.annotation)}</text>` : "";
+
+  // ── Bullets ──────────────────────────────────────────────────────────────
+  const bullSvg = (data.bullets ?? []).map((b, i) => {
+    const txt = b.length > 56 ? b.slice(0, 54) + "…" : b;
+    return `<text x="60" y="${bullY + i * 40 + 30}" font-family="Liberation Sans,Arial,sans-serif" font-size="23" fill="#666666">${escapeXml(txt)}</text>`;
+  }).join("\n  ");
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
   <defs>
-    <radialGradient id="vignette" cx="82%" cy="4%" r="66%">
-      <stop offset="0%" stop-color="#2e0a07"/>
-      <stop offset="100%" stop-color="#060606"/>
+    <radialGradient id="bgGlow" cx="86%" cy="6%" r="58%">
+      <stop offset="0%"   stop-color="#1c0f04"/>
+      <stop offset="100%" stop-color="#080604"/>
     </radialGradient>
   </defs>
-  <rect width="${W}" height="${H}" fill="#080808"/>
-  <rect width="${W}" height="${H}" fill="url(#vignette)"/>
-  <text x="60" y="${88 + padTop}" font-family="Liberation Sans,Arial Black,Impact,sans-serif" font-size="28" font-weight="900" fill="#E8553E" letter-spacing="2">ALPHAVISION.AI</text>
-  <rect x="808" y="${48 + padTop}" width="218" height="54" rx="27" fill="#1c1c1c"/>
-  <circle cx="836" cy="${75 + padTop}" r="7" fill="#D44"/>
-  <text x="852" y="${81 + padTop}" font-family="Liberation Sans,Arial Black,sans-serif" font-size="19" font-weight="900" fill="white">&#x26A1; BREAKING</text>
-  ${headlineSvg}
-  ${subtitleSvg}
+  <rect width="${W}" height="${H}" fill="#080604"/>
+  <rect width="${W}" height="${H}" fill="url(#bgGlow)"/>
+  <!-- top bar -->
+  <text x="60" y="${topBarTextY}" font-family="Liberation Sans,Arial Black,sans-serif" font-size="23" font-weight="900" fill="#C8972A" letter-spacing="3">ALPHAVISION.AI</text>
+  <text x="${W - 192}" y="${topBarTextY}" font-family="Liberation Sans,Arial,sans-serif" font-size="20" fill="#505050">${escapeXml(dateStr)}</text>
+  <circle cx="${W - 52}" cy="${topBarTextY - 7}" r="15" fill="none" stroke="${accent}" stroke-width="2"/>
+  <circle cx="${W - 52}" cy="${topBarTextY - 7}" r="6" fill="${accent}"/>
+  <!-- top separator -->
+  <rect x="60" y="${sepY}" width="${W - 120}" height="1" fill="#1e1810"/>
+  <!-- badge -->
+  <rect x="60" y="${badgeRY}" width="${bTextW}" height="${bH}" rx="${bH / 2}" fill="${accentDim}" stroke="${accent}" stroke-width="1.5"/>
+  <text x="${60 + bTextW / 2}" y="${badgeRY + 33}" text-anchor="middle" font-family="Liberation Sans,Arial Black,sans-serif" font-size="20" font-weight="900" fill="${accent}">${escapeXml(badgeLabel)}</text>
+  <!-- headline -->
+  ${hlSvg}
+  <!-- divider -->
+  <rect x="60" y="${divY}" width="210" height="2" rx="1" fill="${accent}"/>
+  <!-- subtitle -->
+  ${subSvg}
+  <!-- stats -->
   ${statsSvg}
+  <!-- annotation -->
+  ${annSvg}
+  <!-- bullets -->
+  ${bullSvg}
+  <!-- watermark -->
+  <text x="${W - 56}" y="${H - 34}" text-anchor="end" font-family="Liberation Sans,Arial,sans-serif" font-size="21" fill="#2e2820">@alphavision.ai</text>
 </svg>`;
 }
 
@@ -136,10 +215,10 @@ export async function generateAndUploadImages(prompts: string[]): Promise<string
     log.info(`Generando imagen: ${prompt.substring(0, 70)}...`);
     try {
       const data = parseImagePrompt(prompt);
-      const svg = generateBreakingNewsSVG(data);
-      const imageBuffer = await sharp(Buffer.from(svg)).png().toBuffer();
+      const svg  = buildSVG(data, 1080, 1080);
+      const buf  = await sharp(Buffer.from(svg)).png().toBuffer();
       const filename = `instagram/${Date.now()}-${Math.random().toString(36).slice(2, 9)}.png`;
-      const url = await uploadToSupabase(imageBuffer, filename, "image/png");
+      const url  = await uploadToSupabase(buf, filename, "image/png");
       if (url) { urls.push(url); log.ok(`Imagen lista: ${url}`); }
     } catch (err) {
       log.error(`Error en imagen: ${err instanceof Error ? err.message : String(err)}`);
@@ -156,25 +235,22 @@ export async function generateAndUploadReelVideo(prompts: string[]): Promise<str
     const framePrompts = prompts.slice(0, 5);
     if (framePrompts.length === 0) return [];
 
-    // Generate 1080x1920 PNG frames (vertical Reel format)
     const framePaths: string[] = [];
     for (let i = 0; i < framePrompts.length; i++) {
       const data = parseImagePrompt(framePrompts[i]);
-      const svg = generateBreakingNewsSVG(data, 1080, 1920);
-      const pngBuffer = await sharp(Buffer.from(svg)).png().toBuffer();
+      const svg  = buildSVG(data, 1080, 1920);
+      const buf  = await sharp(Buffer.from(svg)).png().toBuffer();
       const framePath = join(tmpDir, `frame${i}.png`);
-      writeFileSync(framePath, pngBuffer);
+      writeFileSync(framePath, buf);
       log.info(`Frame ${i + 1}/${framePrompts.length} generado`);
       framePaths.push(framePath);
     }
 
-    // ffmpeg concat list (each frame shown 3 seconds)
     const concatLines = framePaths.flatMap((p) => [`file '${p}'`, "duration 3"]);
-    concatLines.push(`file '${framePaths[framePaths.length - 1]}'`); // required by concat demuxer
+    concatLines.push(`file '${framePaths[framePaths.length - 1]}'`);
     const concatPath = join(tmpDir, "concat.txt");
     writeFileSync(concatPath, concatLines.join("\n"));
 
-    // Build MP4 with ffmpeg
     const videoPath = join(tmpDir, "reel.mp4");
     execSync(
       `ffmpeg -f concat -safe 0 -i "${concatPath}" ` +
@@ -184,7 +260,7 @@ export async function generateAndUploadReelVideo(prompts: string[]): Promise<str
       `-y "${videoPath}"`,
       { stdio: "pipe", timeout: 120_000 },
     );
-    log.info("Video MP4 generado con ffmpeg");
+    log.info("Video MP4 generado");
 
     const videoBuffer = readFileSync(videoPath);
     const filename = `instagram/reels/${Date.now()}-${Math.random().toString(36).slice(2, 9)}.mp4`;

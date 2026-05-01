@@ -20,8 +20,28 @@ Formato de respuesta: JSON válido con los campos solicitados.
 
 FORMATO ESPECIAL PARA imagePrompts:
 Cada elemento debe ser un JSON string con exactamente esta estructura:
-{"headline":"TITULAR EN MAYÚSCULAS (máx 55 chars)","subtitle":"subtítulo monoespaciado en minúsculas","stats":[{"label":"ETIQUETA DATO","value":"valor"},{"label":"ETIQUETA DATO 2","value":"valor2"}]}
-Incluye siempre 2 stats con datos reales del contexto.`;
+{
+  "badge": "TIPO DE ALERTA",
+  "badgeEmoji": "emoji",
+  "headline": "TITULAR EN MAYÚSCULAS (máx 55 chars)",
+  "subtitle": "subtítulo en cursiva, conciso",
+  "stats": [{"label":"ETIQUETA","value":"valor"},{"label":"ETIQUETA 2","value":"valor2"}],
+  "annotation": "Dato clave adicional o proyección (sin flecha, la añade el código)",
+  "bullets": ["contexto 1", "implicación 2", "dato 3"]
+}
+
+Tipos de badge disponibles (elige según el contexto):
+- "GOLD ALERT" + "🥇"  → noticias de XAU/USD o materias primas
+- "BREAKING" + "⚡"    → evento de mercado urgente
+- "CRYPTO ALERT" + "₿" → noticias cripto
+- "MACRO ALERT" + "📊" → datos macro (CPI, NFP, BCE, Fed)
+- "SEÑAL MRA" + "🎯"   → setup detectado por el sistema MRA
+- "FOREX ALERT" + "💱" → noticias EUR/USD o GBP/USD
+- "ANÁLISIS" + "📈"    → análisis técnico
+- "EDUCACIÓN" + "🎓"   → contenido educativo
+- "ALPHAVISION AI" + "🤖" → contenido de marca
+
+Incluye siempre stats con datos reales del contexto (precio, %, volumen, etc.).`;
 
 interface Template {
   tipo: PostTipo;
@@ -40,28 +60,24 @@ El reel debe explicar QUÉ ES AlphaVision AI, QUÉ OFRECE, POR QUÉ USARLO y QU�
 
 Audiencia: traders españoles 25-45 años que pierden dinero o tiempo por operar sin sistema.
 
-Estructura de 5 frames (breaking news visual):
+Estructura de 5 frames:
 1. PROBLEMA: el dolor del trader promedio sin sistema (dato duro, chocante)
 2. SOLUCIÓN: qué es AlphaVision AI y cómo resuelve ese problema
 3. CÓMO FUNCIONA: Score MRA + Ventana MRA + AURA explicados en una sola pantalla
-4. BENEFICIOS: qué gana el cliente (claridad, disciplina, sistema probado, no estar pegado a pantallas)
+4. BENEFICIOS: qué gana el cliente (claridad, disciplina, sistema probado)
 5. CTA: por qué seguir la cuenta ahora mismo
-
-Reglas del hook (frame 1):
-- Empieza con un dato que duela: « el 80% de los traders minoristas pierde dinero» o similar real
-- Crea urgencia: si no tienes un sistema, estás improvisando con tu dinero
 
 Caption:
 - Hook en la primera línea que frene el scroll
 - Explica brevemente la propuesta de valor
-- CTA claro: comenta MRA para recibir la guía completa / síguenos
+- CTA claro: comenta MRA para recibir la guía completa
 - Máximo 2200 caracteres
 
 Responde ÚNICAMENTE con JSON:
 {
-  "caption": "caption ultra-persuasiva, hook en primera línea, emojis estratégicos, CTA al final",
-  "hashtags": ["30 hashtags sin # mezclando trading, forex, finanzas personales, marca"],
-  "imagePrompts": ["JSON frame 1 problema", "JSON frame 2 solucion", "JSON frame 3 como funciona", "JSON frame 4 beneficios", "JSON frame 5 CTA"]
+  "caption": "...",
+  "hashtags": ["30 hashtags sin #"],
+  "imagePrompts": ["JSON frame 1","JSON frame 2","JSON frame 3","JSON frame 4","JSON frame 5"]
 }`,
   },
 
@@ -77,7 +93,7 @@ Responde ÚNICAMENTE con JSON (sin markdown):
 {
   "caption": "caption completa con emojis, máximo 2200 caracteres",
   "hashtags": ["20 hashtags sin #"],
-  "imagePrompts": ["JSON string headline/subtitle/stats"]
+  "imagePrompts": ["JSON string con badge/headline/subtitle/stats/annotation/bullets"]
 }`,
   },
 
@@ -90,7 +106,7 @@ Responde ÚNICAMENTE con JSON:
 {
   "caption": "caption con hook viral, máximo 2200 caracteres",
   "hashtags": ["20 hashtags sin #"],
-  "imagePrompts": ["JSON frame 1", "JSON frame 2", "JSON frame 3", "JSON frame 4", "JSON frame 5"]
+  "imagePrompts": ["JSON frame 1","JSON frame 2","JSON frame 3","JSON frame 4","JSON frame 5"]
 }`,
   },
 
@@ -119,7 +135,7 @@ Responde ÚNICAMENTE con JSON:
 {
   "caption": "caption ultra-viral con hook en primera línea, emojis estratégicos, CTA al final, máximo 2200 caracteres",
   "hashtags": ["25 hashtags sin #"],
-  "imagePrompts": ["JSON frame 1 breaking", "JSON frame 2 contexto", "JSON frame 3 mercado", "JSON frame 4 setup MRA", "JSON frame 5 cierre"]
+  "imagePrompts": ["JSON frame 1 breaking","JSON frame 2 contexto","JSON frame 3 mercado","JSON frame 4 setup MRA","JSON frame 5 cierre"]
 }`,
   },
 
@@ -237,7 +253,7 @@ export async function generateContent(contentType: ContentType): Promise<{
   const template = TEMPLATES[contentType];
   log.info(`Generando contenido: ${contentType}`);
 
-  const news = await fetchCurrentNews();
+  const news  = await fetchCurrentNews();
   const today = new Date().toLocaleDateString("es-ES", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
 
   const userContent = news
@@ -266,8 +282,8 @@ export async function generateContent(contentType: ContentType): Promise<{
       tipo: template.tipo,
       needsImages: template.needsImages,
       generated: {
-        caption: String(parsed.caption ?? ""),
-        hashtags: Array.isArray(parsed.hashtags) ? (parsed.hashtags as string[]) : [],
+        caption:      String(parsed.caption ?? ""),
+        hashtags:     Array.isArray(parsed.hashtags)     ? (parsed.hashtags as string[])     : [],
         imagePrompts: Array.isArray(parsed.imagePrompts) ? (parsed.imagePrompts as string[]) : [],
       },
     };

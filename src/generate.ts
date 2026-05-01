@@ -18,6 +18,12 @@ Conceptos clave de la marca:
 Tono: directo, basado en datos, sin promesas de ganancias garantizadas.
 Formato de respuesta: JSON válido con los campos solicitados.
 
+FORMATO VISUAL OBLIGATORIO — SIEMPRE:
+Todas las imágenes usan fondo negro-dorado oscuro (#080604) con glow cálido en la esquina.
+El diseño tiene: badge de color según tipo, titular blanco en negrita, línea divisora dorada,
+subtítulo en cursiva gris, cajas de estadísticas oscuras, fila de anotación con flecha y
+marca de agua @alphavision.ai. NUNCA cambies este estilo.
+
 FORMATO ESPECIAL PARA imagePrompts:
 Cada elemento debe ser un JSON string con exactamente esta estructura:
 {
@@ -41,7 +47,9 @@ Tipos de badge disponibles (elige según el contexto):
 - "EDUCACIÓN" + "🎓"   → contenido educativo
 - "ALPHAVISION AI" + "🤖" → contenido de marca
 
-Incluye siempre stats con datos reales del contexto (precio, %, volumen, etc.).`;
+Incluye siempre stats con datos reales del contexto (precio, %, volumen, etc.).
+
+HASHTAGS: MÁXIMO 5 por publicación. Elige solo los más virales y relevantes para el contenido.`;
 
 interface Template {
   tipo: PostTipo;
@@ -54,29 +62,24 @@ const TEMPLATES: Record<ContentType, Template> = {
   reel_marca: {
     tipo: "reel",
     needsImages: true,
-    prompt: `Actúa como el mejor director creativo de una agencia de marketing financiero. Tu misión: crear el reel de presentación de AlphaVision AI que convierta espectadores en seguidores y seguidores en clientes.
-
-El reel debe explicar QUÉ ES AlphaVision AI, QUÉ OFRECE, POR QUÉ USARLO y QUÉ BENEFICIOS aporta al trader, sin prometer ganancias garantizadas.
+    prompt: `Actúa como el mejor director creativo de una agencia de marketing financiero.
+Crea el reel de presentación de AlphaVision AI que convierta espectadores en clientes.
 
 Audiencia: traders españoles 25-45 años que pierden dinero o tiempo por operar sin sistema.
 
 Estructura de 5 frames:
-1. PROBLEMA: el dolor del trader promedio sin sistema (dato duro, chocante)
-2. SOLUCIÓN: qué es AlphaVision AI y cómo resuelve ese problema
-3. CÓMO FUNCIONA: Score MRA + Ventana MRA + AURA explicados en una sola pantalla
-4. BENEFICIOS: qué gana el cliente (claridad, disciplina, sistema probado)
-5. CTA: por qué seguir la cuenta ahora mismo
+1. PROBLEMA: dato duro y chocante del trader promedio sin sistema
+2. SOLUCIÓN: qué es AlphaVision AI y cómo lo resuelve
+3. CÓMO FUNCIONA: Score MRA + Ventana MRA + AURA
+4. BENEFICIOS: claridad, disciplina, sistema probado
+5. CTA: comenta MRA para recibir información
 
-Caption:
-- Hook en la primera línea que frene el scroll
-- Explica brevemente la propuesta de valor
-- CTA claro: comenta MRA para recibir la guía completa
-- Máximo 2200 caracteres
+Caption: hook en primera línea + propuesta de valor + CTA. Máx 2200 caracteres.
 
 Responde ÚNICAMENTE con JSON:
 {
   "caption": "...",
-  "hashtags": ["30 hashtags sin #"],
+  "hashtags": ["máximo 5 hashtags sin # ultravirales"],
   "imagePrompts": ["JSON frame 1","JSON frame 2","JSON frame 3","JSON frame 4","JSON frame 5"]
 }`,
   },
@@ -84,28 +87,26 @@ Responde ÚNICAMENTE con JSON:
   setup_del_dia: {
     tipo: "post",
     needsImages: true,
-    prompt: `Actúa como copywriter viral especializado en finanzas y trading.
-
-Genera contenido para un post de Instagram sobre un setup MRA detectado hoy en EUR/USD con Score 8/10.
+    prompt: `Genera un post de Instagram sobre un setup MRA detectado hoy en EUR/USD con Score 8/10.
 Usa las noticias del día como contexto real.
 
-Responde ÚNICAMENTE con JSON (sin markdown):
+Responde ÚNICAMENTE con JSON:
 {
-  "caption": "caption completa con emojis, máximo 2200 caracteres",
-  "hashtags": ["20 hashtags sin #"],
-  "imagePrompts": ["JSON string con badge/headline/subtitle/stats/annotation/bullets"]
+  "caption": "caption con emojis y hook en primera línea, máx 2200 caracteres",
+  "hashtags": ["máximo 5 hashtags sin # ultravirales"],
+  "imagePrompts": ["JSON con badge/headline/subtitle/stats/annotation/bullets"]
 }`,
   },
 
   reel_setup: {
     tipo: "reel",
     needsImages: true,
-    prompt: `Genera contenido para un REEL mostrando un setup MRA en vivo basado en las noticias actuales.
+    prompt: `Genera un REEL mostrando un setup MRA en vivo basado en las noticias actuales.
 
 Responde ÚNICAMENTE con JSON:
 {
-  "caption": "caption con hook viral, máximo 2200 caracteres",
-  "hashtags": ["20 hashtags sin #"],
+  "caption": "caption con hook viral, máx 2200 caracteres",
+  "hashtags": ["máximo 5 hashtags sin # ultravirales"],
   "imagePrompts": ["JSON frame 1","JSON frame 2","JSON frame 3","JSON frame 4","JSON frame 5"]
 }`,
   },
@@ -113,19 +114,17 @@ Responde ÚNICAMENTE con JSON:
   reel_viral: {
     tipo: "reel",
     needsImages: true,
-    prompt: `Actúa como el mejor estratega de contenido viral de Instagram para finanzas.
-
-Crea un REEL VIRAL de alto impacto basado en las noticias actuales del mercado.
+    prompt: `Crea un REEL VIRAL de alto impacto basado en las noticias actuales del mercado.
 Formato: breaking news financiero — urgente, datos reales, sin palabrería.
 Audiencia: traders españoles 25-45 años.
 
-Reglas del hook (primeros 3 segundos):
+Reglas del hook:
 - Empieza con un dato concreto que sorprenda
 - Nunca empieces con "Hola" ni preguntas
 - Usa tensión: algo pasó, tiene consecuencias
 
 Estructura de 5 frames:
-1. Breaking: el evento (titular + dato clave)
+1. Breaking: el evento + dato clave
 2. Contexto: por qué importa ahora
 3. Reacción del mercado: qué está pasando con el precio
 4. Setup MRA: cómo se posiciona AlphaVision AI
@@ -133,9 +132,9 @@ Estructura de 5 frames:
 
 Responde ÚNICAMENTE con JSON:
 {
-  "caption": "caption ultra-viral con hook en primera línea, emojis estratégicos, CTA al final, máximo 2200 caracteres",
-  "hashtags": ["25 hashtags sin #"],
-  "imagePrompts": ["JSON frame 1 breaking","JSON frame 2 contexto","JSON frame 3 mercado","JSON frame 4 setup MRA","JSON frame 5 cierre"]
+  "caption": "caption ultra-viral con hook, emojis estratégicos y CTA, máx 2200 caracteres",
+  "hashtags": ["máximo 5 hashtags sin # ultravirales"],
+  "imagePrompts": ["JSON frame 1","JSON frame 2","JSON frame 3","JSON frame 4","JSON frame 5"]
 }`,
   },
 
@@ -147,8 +146,8 @@ Usa las noticias actuales como contexto de mercado.
 
 Responde ÚNICAMENTE con JSON:
 {
-  "caption": "caption optimizada, máximo 2200 caracteres",
-  "hashtags": ["20 hashtags sin #"],
+  "caption": "caption optimizada, máx 2200 caracteres",
+  "hashtags": ["máximo 5 hashtags sin # ultravirales"],
   "imagePrompts": ["JSON slide 1","JSON slide 2","JSON slide 3","JSON slide 4","JSON slide 5","JSON slide 6","JSON slide 7","JSON slide 8","JSON slide 9","JSON slide 10"]
 }`,
   },
@@ -156,12 +155,12 @@ Responde ÚNICAMENTE con JSON:
   reel_preview: {
     tipo: "reel",
     needsImages: true,
-    prompt: `Genera un REEL de preview de la semana con eventos macro reales (BCE, PIB, NFP) basado en las noticias actuales.
+    prompt: `Genera un REEL de preview de la semana con eventos macro reales (BCE, PIB, NFP).
 
 Responde ÚNICAMENTE con JSON:
 {
-  "caption": "caption con eventos macro, máximo 2200 caracteres",
-  "hashtags": ["20 hashtags sin #"],
+  "caption": "caption con eventos macro, máx 2200 caracteres",
+  "hashtags": ["máximo 5 hashtags sin # ultravirales"],
   "imagePrompts": ["JSON frame 1","JSON frame 2","JSON frame 3","JSON frame 4","JSON frame 5"]
 }`,
   },
@@ -173,8 +172,8 @@ Responde ÚNICAMENTE con JSON:
 
 Responde ÚNICAMENTE con JSON:
 {
-  "caption": "análisis transparente del día, máximo 2200 caracteres",
-  "hashtags": ["15 hashtags sin #"],
+  "caption": "análisis transparente del día, máx 2200 caracteres",
+  "hashtags": ["máximo 5 hashtags sin # ultravirales"],
   "imagePrompts": ["JSON slide resultado","JSON slide análisis técnico","JSON slide lecciones"]
 }`,
   },
@@ -182,13 +181,13 @@ Responde ÚNICAMENTE con JSON:
   chart_analysis: {
     tipo: "post",
     needsImages: true,
-    prompt: `Genera un post de análisis técnico del chart EUR/USD o GBP/USD con niveles clave basado en las noticias actuales.
+    prompt: `Genera un post de análisis técnico del chart EUR/USD o GBP/USD con niveles clave.
 
 Responde ÚNICAMENTE con JSON:
 {
-  "caption": "análisis técnico con niveles clave, máximo 2200 caracteres",
-  "hashtags": ["20 hashtags sin #"],
-  "imagePrompts": ["JSON headline del análisis con stats de niveles clave"]
+  "caption": "análisis técnico con niveles clave, máx 2200 caracteres",
+  "hashtags": ["máximo 5 hashtags sin # ultravirales"],
+  "imagePrompts": ["JSON headline con stats de niveles clave"]
 }`,
   },
 
@@ -199,8 +198,8 @@ Responde ÚNICAMENTE con JSON:
 
 Responde ÚNICAMENTE con JSON:
 {
-  "caption": "caption educativa con CTA, máximo 2200 caracteres",
-  "hashtags": ["20 hashtags sin #"],
+  "caption": "caption educativa con CTA, máx 2200 caracteres",
+  "hashtags": ["máximo 5 hashtags sin # ultravirales"],
   "imagePrompts": ["JSON intro","JSON qué es Score MRA","JSON escala 0-10","JSON ejemplo score 8","JSON ventana horaria","JSON reglas de entrada","JSON resumen"]
 }`,
   },
@@ -212,8 +211,8 @@ Responde ÚNICAMENTE con JSON:
 
 Responde ÚNICAMENTE con JSON:
 {
-  "caption": "caption sobre gestión de riesgo, máximo 2200 caracteres",
-  "hashtags": ["20 hashtags sin #"],
+  "caption": "caption sobre gestión de riesgo, máx 2200 caracteres",
+  "hashtags": ["máximo 5 hashtags sin # ultravirales"],
   "imagePrompts": ["JSON portada","JSON regla 1%","JSON stop loss MRA","JSON ratio R:P","JSON tamaño posición","JSON errores comunes","JSON caso real","JSON conclusión"]
 }`,
   },
@@ -225,8 +224,8 @@ Responde ÚNICAMENTE con JSON:
 
 Responde ÚNICAMENTE con JSON:
 {
-  "caption": "recap semanal con resultados reales, máximo 2200 caracteres",
-  "hashtags": ["20 hashtags sin #"],
+  "caption": "recap semanal con resultados reales, máx 2200 caracteres",
+  "hashtags": ["máximo 5 hashtags sin # ultravirales"],
   "imagePrompts": ["JSON portada recap","JSON estadísticas","JSON mejor setup","JSON peor setup","JSON lección 1","JSON lección 2","JSON próxima semana","JSON CTA"]
 }`,
   },
@@ -238,8 +237,8 @@ Responde ÚNICAMENTE con JSON:
 
 Responde ÚNICAMENTE con JSON:
 {
-  "caption": "caption del setup en oro, máximo 2200 caracteres",
-  "hashtags": ["20 hashtags sin #"],
+  "caption": "caption del setup en oro, máx 2200 caracteres",
+  "hashtags": ["máximo 5 hashtags sin # ultravirales"],
   "imagePrompts": ["JSON setup XAU/USD score 9/10","JSON niveles objetivo y stop loss"]
 }`,
   },
@@ -278,12 +277,13 @@ export async function generateContent(contentType: ContentType): Promise<{
   try {
     const jsonStr = raw.match(/```(?:json)?\s*([\s\S]+?)\s*```/)?.[1] ?? raw;
     const parsed = JSON.parse(jsonStr) as { caption?: unknown; hashtags?: unknown; imagePrompts?: unknown };
+    const hashtags = Array.isArray(parsed.hashtags) ? (parsed.hashtags as string[]).slice(0, 5) : [];
     return {
       tipo: template.tipo,
       needsImages: template.needsImages,
       generated: {
         caption:      String(parsed.caption ?? ""),
-        hashtags:     Array.isArray(parsed.hashtags)     ? (parsed.hashtags as string[])     : [],
+        hashtags,
         imagePrompts: Array.isArray(parsed.imagePrompts) ? (parsed.imagePrompts as string[]) : [],
       },
     };
@@ -292,7 +292,7 @@ export async function generateContent(contentType: ContentType): Promise<{
     return {
       tipo: template.tipo,
       needsImages: false,
-      generated: { caption: raw, hashtags: (raw.match(/#(\w+)/g) ?? []).map((h) => h.slice(1)), imagePrompts: [] },
+      generated: { caption: raw, hashtags: (raw.match(/#(\w+)/g) ?? []).map((h) => h.slice(1)).slice(0, 5), imagePrompts: [] },
     };
   }
 }

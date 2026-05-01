@@ -23,6 +23,8 @@ interface ImageData {
   bullets?: string[];
 }
 
+interface Candle { o: number; h: number; l: number; c: number; }
+
 const BADGE_ACCENT: Record<string, string> = {
   "GOLD":     "#C8972A",
   "BREAKING": "#E8553E",
@@ -126,20 +128,116 @@ function cornerBracket(x: number, y: number, size: number, color: string, flipX 
   ].join("\n  ");
 }
 
+/**
+ * Generates a realistic bullish-breakout OHLC sequence.
+ * Phase 1: Asian ranging/slight drift down to stop zone.
+ * Phase 2: Pre-London consolidation finding support.
+ * Phase 3: London breakout candles driving toward target.
+ */
+function generateCandles(entry: number, stop: number, target: number, N = 15): Candle[] {
+  const range   = Math.abs(target - entry) + Math.abs(entry - stop);
+  const tick    = range / 120;
+  const candles: Candle[] = [];
+
+  // Phase 1 — ranging slightly below entry (5 candles)
+  let price = stop + (entry - stop) * 0.4;
+  for (let i = 0; i < 5; i++) {
+    const drift = (Math.random() - 0.52) * tick * 3;
+    const bodySize = tick * (1 + Math.random() * 2);
+    const o = price;
+    const c = o + drift;
+    const h = Math.max(o, c) + tick * (0.5 + Math.random());
+    const l = Math.min(o, c) - tick * (0.5 + Math.random());
+    candles.push({ o: +o.toFixed(5), h: +h.toFixed(5), l: +Math.max(l, stop - tick).toFixed(5), c: +c.toFixed(5) });
+    price = c;
+  }
+
+  // Phase 2 — finding support near stop, slight bullish bias (3 candles)
+  price = stop + (entry - stop) * 0.15;
+  for (let i = 0; i < 3; i++) {
+    const o = price;
+    const c = o + tick * (0.5 + Math.random() * 1.5);
+    const h = Math.max(o, c) + tick * 0.8;
+    const l = Math.min(o, c) - tick * (0.3 + Math.random() * 0.5);
+    candles.push({ o: +o.toFixed(5), h: +h.toFixed(5), l: +Math.max(l, stop - tick * 0.5).toFixed(5), c: +c.toFixed(5) });
+    price = c;
+  }
+
+  // Phase 3 — London breakout impulse toward target (N-8 candles)
+  price = entry - tick;
+  const remaining = N - 8;
+  for (let i = 0; i < remaining; i++) {
+    const progress = i / remaining;
+    const bullBias = tick * (3 + progress * 4);
+    const o = price;
+    const c = o + bullBias * (0.7 + Math.random() * 0.6);
+    const h = Math.max(o, c) + tick * (0.5 + Math.random());
+    const l = Math.min(o, c) - tick * (0.2 + Math.random() * 0.4);
+    // Every 3rd candle is a small bearish pullback
+    const isBearPullback = i > 0 && i % 3 === 2;
+    const finalC = isBearPullback ? o - tick * (0.8 + Math.random()) : c;
+    candles.push({
+      o: +o.toFixed(5),
+      h: +(isBearPullback ? Math.max(o, c) + tick * 0.3 : h).toFixed(5),
+      l: +(isBearPullback ? Math.min(o, finalC) - tick * 0.5 : l).toFixed(5),
+      c: +Math.min(finalC, target + tick * 2).toFixed(5),
+    });
+    price = finalC;
+  }
+
+  return candles;
+}
+
+/** Renders OHLC candles as SVG within the given bounding box. */
+function buildCandleChart(
+  candles: Candle[],
+  chartX: number, chartY: number,
+  chartW: number, chartH: number,
+  accent: string,
+): string {
+  const prices = candles.flatMap((c) => [c.h, c.l]);
+  const pMin = Math.min(...prices) - (Math.max(...prices) - Math.min(...prices)) * 0.05;
+  const pMax = Math.max(...prices) + (Math.max(...prices) - Math.min(...prices)) * 0.05;
+  const toY  = (p: number) => chartY + chartH - ((p - pMin) / (pMax - pMin)) * chartH;
+
+  const N    = candles.length;
+  const slot = chartW / N;
+  const bw   = Math.max(Math.floor(slot * 0.55), 4);
+  const parts: string[] = [];
+
+  candles.forEach((c, i) => {
+    const cx     = chartX + i * slot + slot / 2;
+    const isBull = c.c >= c.o;
+    const color  = isBull ? accent : "#ffffff";
+    const bTop   = toY(Math.max(c.o, c.c));
+    const bBot   = toY(Math.min(c.o, c.c));
+    const bH     = Math.max(bBot - bTop, 1.5);
+    const bodyOp = isBull ? "0.70" : "0.45";
+    const wickOp = (parseFloat(bodyOp) * 0.5).toFixed(2);
+
+    parts.push(
+      `<line x1="${cx.toFixed(1)}" y1="${toY(c.h).toFixed(1)}" x2="${cx.toFixed(1)}" y2="${toY(c.l).toFixed(1)}" stroke="${color}" stroke-width="1.5" opacity="${wickOp}"/>`,
+      `<rect x="${(cx - bw / 2).toFixed(1)}" y="${bTop.toFixed(1)}" width="${bw}" height="${bH.toFixed(1)}" fill="${color}" opacity="${bodyOp}" rx="1"/>`,
+    );
+  });
+
+  return parts.join("\n  ");
+}
+
+/** Extracts a numeric price from a stat value string (e.g. "1.0842" → 1.0842). */
+function parsePrice(v: string): number | null {
+  const m = v.replace(/[$,€£]/g, "").match(/[\d.]+/);
+  return m ? parseFloat(m[0]) : null;
+}
+
 function buildSVG(data: ImageData, W = 1080, H = 1080): string {
   const isReel   = H === 1920;
   const PAD      = 64;
   const contentW = W - PAD * 2;
   const accent   = accentFor(data.badge);
   const dateStr  = spanishDate();
-
-  // For reels the content block starts at ~8% from top (no big padTop)
-  // so the design fills from top and the natural empty space is at the bottom
-  // (covered by Instagram caption + controls in the actual app)
-  const padTop = isReel ? 120 : 0;
-
-  // Section spacing scales up for reels so content spreads over taller canvas
-  const scale = isReel ? 1.35 : 1.0;
+  const padTop   = isReel ? 120 : 0;
+  const scale    = isReel ? 1.35 : 1.0;
 
   const { lines: hlLines, fontSize: hlSize, lineH: hlLineH } = fitHeadline(data.headline, contentW);
 
@@ -167,7 +265,41 @@ function buildSVG(data: ImageData, W = 1080, H = 1080): string {
   const bullY    = y;
   const bullLH   = Math.round(42 * scale);
 
-  // Badge label (no emoji — Liberation Sans has no emoji glyphs)
+  // ─ Candlestick chart background ──────────────────────────────────────────
+  // Try to extract entry/stop/target from stats + annotation for realistic scaling
+  let entry = 1.0;
+  let stop  = 0.97;
+  let target = 1.03;
+  if (stats.length >= 1) {
+    const p = parsePrice(stats[0].value);
+    if (p) entry = p;
+  }
+  const annText = data.annotation ?? "";
+  const stopM   = annText.match(/[Ss]top[:\s]+([\d.]+)/);
+  const tgtM    = annText.match(/[Tt]arget[:\s]+([\d.]+)/);
+  if (stopM)  stop   = parseFloat(stopM[1]);
+  if (tgtM)   target = parseFloat(tgtM[1]);
+  // Fallback: use ±2% if annotation has no stop/target
+  if (stop === 0.97 && entry !== 1.0) { stop = entry * 0.98; target = entry * 1.03; }
+
+  const chartTop  = isReel ? Math.round(H * 0.42) : Math.round(H * 0.36);
+  const chartBot  = H - 80;
+  const chartH_px = chartBot - chartTop;
+  const candles   = generateCandles(entry, stop, target, 15);
+  const chartSvg  = buildCandleChart(candles, 0, chartTop, W, chartH_px, accent);
+
+  // Gradient fades chart into background so text remains readable
+  const chartFadeId = `chartFade_${W}x${H}`;
+  const chartFadeDef = `
+    <linearGradient id="${chartFadeId}" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%"   stop-color="#080604" stop-opacity="0.90"/>
+      <stop offset="25%"  stop-color="#080604" stop-opacity="0.50"/>
+      <stop offset="70%"  stop-color="#080604" stop-opacity="0.08"/>
+      <stop offset="100%" stop-color="#080604" stop-opacity="0.60"/>
+    </linearGradient>`;
+  const chartOverlay = `<rect x="0" y="${chartTop}" width="${W}" height="${chartH_px}" fill="url(#${chartFadeId})"/>`;
+
+  // ─ Badge ─────────────────────────────────────────────────────────────────
   const badgeLabel = stripEmoji(`${data.badgeEmoji ?? ""} ${data.badge ?? "BREAKING"}`);
   const bTextW     = Math.min(Math.max(badgeLabel.length * 14 + 52, 130), contentW);
 
@@ -185,13 +317,15 @@ function buildSVG(data: ImageData, W = 1080, H = 1080): string {
     const x     = PAD + i * (boxW + 20);
     const vSize = s.value.length > 7 ? 46 : s.value.length > 5 ? 54 : 62;
     return `
-  <rect x="${x}" y="${stY}" width="${boxW}" height="${stH}" rx="6" fill="#111111"/>
+  <rect x="${x}" y="${stY}" width="${boxW}" height="${stH}" rx="6" fill="#080604" fill-opacity="0.82"/>
+  <rect x="${x}" y="${stY}" width="${boxW}" height="${stH}" rx="6" fill="#111111" fill-opacity="0.70"/>
   <text x="${x + 22}" y="${stY + 32}" font-family="Liberation Sans,Arial,sans-serif" font-size="17" font-weight="600" fill="#555555" letter-spacing="1">${escapeXml(s.label.toUpperCase())}</text>
   <text x="${x + 22}" y="${stY + stH - 22}" font-family="Liberation Sans,Arial Black,Impact,sans-serif" font-size="${vSize}" font-weight="900" fill="white">${escapeXml(s.value)}</text>`;
   }).join("");
 
   const annSvg = annLines.length ? `
-  <rect x="${PAD}" y="${annY}" width="${contentW}" height="${annH}" rx="6" fill="#111111"/>
+  <rect x="${PAD}" y="${annY}" width="${contentW}" height="${annH}" rx="6" fill="#080604" fill-opacity="0.82"/>
+  <rect x="${PAD}" y="${annY}" width="${contentW}" height="${annH}" rx="6" fill="#111111" fill-opacity="0.70"/>
   ${annLines.map((ln, i) =>
     `<text x="${PAD + 24}" y="${annY + 40 + i * annLH}" font-family="Liberation Sans,Arial,sans-serif" font-size="25" font-weight="600" fill="${accent}">${i === 0 ? "→ " : "  "}${escapeXml(ln)}</text>`
   ).join("\n  ")}` : "";
@@ -202,10 +336,10 @@ function buildSVG(data: ImageData, W = 1080, H = 1080): string {
     return `<text x="${PAD}" y="${bullY + i * bullLH + 30}" font-family="Liberation Sans,Arial,sans-serif" font-size="23" fill="#666666">${escapeXml(txt)}</text>`;
   }).join("\n  ");
 
-  // ─ Depth / 3D design elements ─────────────────────────────────────────
+  // ─ Depth design elements ─────────────────────────────────────────────────
   const motionStripe = `
-  <polygon points="0,${H * 0.72} ${W * 0.28},${H} 0,${H}" fill="${accent}" fill-opacity="0.04"/>
-  <polygon points="0,${H * 0.78} ${W * 0.18},${H} 0,${H}" fill="${accent}" fill-opacity="0.03"/>`;
+  <polygon points="0,${H * 0.72} ${W * 0.28},${H} 0,${H}" fill="${accent}" fill-opacity="0.03"/>
+  <polygon points="0,${H * 0.78} ${W * 0.18},${H} 0,${H}" fill="${accent}" fill-opacity="0.02"/>`;
   const brackets = `
   ${cornerBracket(W - PAD, padTop + 40, 28, accent)}
   ${cornerBracket(PAD, H - 60, 28, accent, false, true)}`;
@@ -217,10 +351,14 @@ function buildSVG(data: ImageData, W = 1080, H = 1080): string {
     <radialGradient id="bgGlow" cx="86%" cy="6%" r="58%">
       <stop offset="0%"   stop-color="#1c0f04"/>
       <stop offset="100%" stop-color="#080604"/>
-    </radialGradient>
+    </radialGradient>${chartFadeDef}
   </defs>
   <rect width="${W}" height="${H}" fill="#080604"/>
   <rect width="${W}" height="${H}" fill="url(#bgGlow)"/>
+  <!-- candlestick chart background -->
+  ${chartSvg}
+  ${chartOverlay}
+  <!-- depth elements -->
   ${motionStripe}${scanLine}${leftEdge}
   <!-- top bar -->
   <text x="${PAD}" y="${topBarY}" font-family="Liberation Sans,Arial Black,sans-serif" font-size="23" font-weight="900" fill="#C8972A" letter-spacing="3">ALPHAVISION.AI</text>

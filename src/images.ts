@@ -95,26 +95,28 @@ function wrapText(text: string, maxChars: number): string[] {
   return lines.length ? lines : [""];
 }
 
-/** Iteratively find the largest font size where the headline fits within availableWidth. */
+/**
+ * Picks the largest font size where every line fits within availableWidth.
+ * Factor 0.75 is conservative for bold uppercase Liberation Sans / Arial Black.
+ */
 function fitHeadline(headline: string, availableWidth: number): { lines: string[]; fontSize: number; lineH: number } {
+  const FACTOR = 0.75;
   for (const fontSize of [86, 74, 64, 56, 48, 40]) {
-    const maxChars = Math.floor(availableWidth / (fontSize * 0.60));
+    const maxChars = Math.floor(availableWidth / (fontSize * FACTOR));
     const lines    = wrapText(headline, maxChars);
-    if (Math.max(...lines.map((l) => l.length)) * fontSize * 0.60 <= availableWidth && lines.length <= 5) {
+    const longestPx = Math.max(...lines.map((l) => l.length)) * fontSize * FACTOR;
+    if (longestPx <= availableWidth && lines.length <= 5) {
       return { lines, fontSize, lineH: fontSize * 1.15 };
     }
   }
   const fontSize = 40;
-  const lines = wrapText(headline, Math.floor(availableWidth / (fontSize * 0.60)));
-  return { lines, fontSize, lineH: fontSize * 1.15 };
+  return { lines: wrapText(headline, Math.floor(availableWidth / (fontSize * 0.75))), fontSize, lineH: fontSize * 1.15 };
 }
 
-/** Wraps annotation to max 2 lines. */
 function fitAnnotation(text: string, availableWidth: number): string[] {
   return wrapText(text, Math.floor(availableWidth / (25 * 0.60))).slice(0, 2);
 }
 
-/** Corner bracket accent (top-right or bottom-left style) — gives terminal/tech depth feel. */
 function cornerBracket(x: number, y: number, size: number, color: string, flipX = false, flipY = false): string {
   const dx = flipX ? -size : size;
   const dy = flipY ? -size : size;
@@ -126,33 +128,50 @@ function cornerBracket(x: number, y: number, size: number, color: string, flipX 
 
 function buildSVG(data: ImageData, W = 1080, H = 1080): string {
   const isReel   = H === 1920;
-  const padTop   = isReel ? 300 : 0;
   const PAD      = 64;
   const contentW = W - PAD * 2;
   const accent   = accentFor(data.badge);
   const dateStr  = spanishDate();
 
+  // For reels the content block starts at ~8% from top (no big padTop)
+  // so the design fills from top and the natural empty space is at the bottom
+  // (covered by Instagram caption + controls in the actual app)
+  const padTop = isReel ? 120 : 0;
+
+  // Section spacing scales up for reels so content spreads over taller canvas
+  const scale = isReel ? 1.35 : 1.0;
+
   const { lines: hlLines, fontSize: hlSize, lineH: hlLineH } = fitHeadline(data.headline, contentW);
 
   let y = 72 + padTop;
-  const topBarY  = y + 10;                 y += 52;
-  const sepY     = y;                      y += 24;
-  const badgeRY  = y;  const bH = 50;     y += bH + 44;
-  const hlY      = y + hlSize;            y += hlLines.length * hlLineH + 36;
-  const divY     = y;                     y += 28;
-  const subLines = data.subtitle ? wrapText(data.subtitle, Math.floor(contentW / (29 * 0.52))) : [];
-  const subY     = y;  const subLH = 44;  y += subLines.length * subLH + 44;
-  const stats    = (data.stats ?? []).slice(0, 2);
-  const stY      = y;  const stH = 132;   if (stats.length) y += stH + 20;
-  const annLines = data.annotation ? fitAnnotation(data.annotation, contentW - 44) : [];
-  const annY     = y;  const annLH = 40;  const annH = annLines.length > 1 ? 86 : 62;
-  if (annLines.length) y += annH + 18;
-  const bullY    = y;
+  const topBarY  = y + 10;                             y += Math.round(52  * scale);
+  const sepY     = y;                                  y += Math.round(24  * scale);
+  const badgeRY  = y;  const bH = 50;                 y += Math.round((bH + 44) * scale);
+  const hlY      = y + hlSize;                         y += Math.round((hlLines.length * hlLineH + 36) * scale);
+  const divY     = y;                                  y += Math.round(28  * scale);
 
+  const subLines = data.subtitle
+    ? wrapText(data.subtitle, Math.floor(contentW / (29 * 0.55)))
+    : [];
+  const subY    = y;  const subLH = Math.round(44 * scale);  y += subLines.length * subLH + Math.round(44 * scale);
+
+  const stats   = (data.stats ?? []).slice(0, 2);
+  const stY     = y;  const stH = Math.round(132 * scale);
+  if (stats.length) y += stH + Math.round(20 * scale);
+
+  const annLines = data.annotation ? fitAnnotation(data.annotation, contentW - 44) : [];
+  const annY     = y;  const annLH = Math.round(40 * scale);
+  const annH     = annLines.length > 1 ? Math.round(86 * scale) : Math.round(62 * scale);
+  if (annLines.length) y += annH + Math.round(18 * scale);
+
+  const bullY    = y;
+  const bullLH   = Math.round(42 * scale);
+
+  // Badge label (no emoji — Liberation Sans has no emoji glyphs)
   const badgeLabel = stripEmoji(`${data.badgeEmoji ?? ""} ${data.badge ?? "BREAKING"}`);
   const bTextW     = Math.min(Math.max(badgeLabel.length * 14 + 52, 130), contentW);
 
-  // ── SVG fragments ───────────────────────────────────────────────────────────
+  // ─ SVG fragments ─────────────────────────────────────────────────────────
   const hlSvg = hlLines.map((ln, i) =>
     `<text x="${PAD}" y="${hlY + i * hlLineH}" font-family="Liberation Sans,Arial Black,Impact,sans-serif" font-size="${hlSize}" font-weight="900" fill="white">${escapeXml(ln)}</text>`
   ).join("\n  ");
@@ -168,7 +187,7 @@ function buildSVG(data: ImageData, W = 1080, H = 1080): string {
     return `
   <rect x="${x}" y="${stY}" width="${boxW}" height="${stH}" rx="6" fill="#111111"/>
   <text x="${x + 22}" y="${stY + 32}" font-family="Liberation Sans,Arial,sans-serif" font-size="17" font-weight="600" fill="#555555" letter-spacing="1">${escapeXml(s.label.toUpperCase())}</text>
-  <text x="${x + 22}" y="${stY + stH - 18}" font-family="Liberation Sans,Arial Black,Impact,sans-serif" font-size="${vSize}" font-weight="900" fill="white">${escapeXml(s.value)}</text>`;
+  <text x="${x + 22}" y="${stY + stH - 22}" font-family="Liberation Sans,Arial Black,Impact,sans-serif" font-size="${vSize}" font-weight="900" fill="white">${escapeXml(s.value)}</text>`;
   }).join("");
 
   const annSvg = annLines.length ? `
@@ -178,26 +197,19 @@ function buildSVG(data: ImageData, W = 1080, H = 1080): string {
   ).join("\n  ")}` : "";
 
   const bullSvg = (data.bullets ?? []).map((b, i) => {
-    const maxBullChars = Math.floor(contentW / (23 * 0.52));
+    const maxBullChars = Math.floor(contentW / (23 * 0.55));
     const txt = stripEmoji(b.length > maxBullChars ? b.slice(0, maxBullChars - 1) + "…" : b);
-    return `<text x="${PAD}" y="${bullY + i * 42 + 30}" font-family="Liberation Sans,Arial,sans-serif" font-size="23" fill="#666666">${escapeXml(txt)}</text>`;
+    return `<text x="${PAD}" y="${bullY + i * bullLH + 30}" font-family="Liberation Sans,Arial,sans-serif" font-size="23" fill="#666666">${escapeXml(txt)}</text>`;
   }).join("\n  ");
 
-  // ── 3D / depth design elements ──────────────────────────────────────────────────
-  // Diagonal motion stripe bottom-left (suggests speed/momentum)
+  // ─ Depth / 3D design elements ─────────────────────────────────────────
   const motionStripe = `
   <polygon points="0,${H * 0.72} ${W * 0.28},${H} 0,${H}" fill="${accent}" fill-opacity="0.04"/>
   <polygon points="0,${H * 0.78} ${W * 0.18},${H} 0,${H}" fill="${accent}" fill-opacity="0.03"/>`;
-
-  // Terminal corner brackets: top-right and bottom-left (AlphaVision dashboard feel)
   const brackets = `
   ${cornerBracket(W - PAD, padTop + 40, 28, accent)}
   ${cornerBracket(PAD, H - 60, 28, accent, false, true)}`;
-
-  // Subtle horizontal scan line (trading terminal aesthetic)
-  const scanLine = `<rect x="0" y="${Math.round(H * 0.38 + padTop * 0.3)}" width="${W}" height="1" fill="${accent}" fill-opacity="0.04"/>`;
-
-  // Thin accent line on left edge (like a live data feed indicator)
+  const scanLine = `<rect x="0" y="${Math.round(H * 0.38)}" width="${W}" height="1" fill="${accent}" fill-opacity="0.05"/>`;
   const leftEdge = `<rect x="0" y="${padTop + 80}" width="3" height="${H - padTop - 120}" fill="${accent}" fill-opacity="0.25" rx="2"/>`;
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
@@ -209,10 +221,7 @@ function buildSVG(data: ImageData, W = 1080, H = 1080): string {
   </defs>
   <rect width="${W}" height="${H}" fill="#080604"/>
   <rect width="${W}" height="${H}" fill="url(#bgGlow)"/>
-  <!-- depth elements -->
-  ${motionStripe}
-  ${scanLine}
-  ${leftEdge}
+  ${motionStripe}${scanLine}${leftEdge}
   <!-- top bar -->
   <text x="${PAD}" y="${topBarY}" font-family="Liberation Sans,Arial Black,sans-serif" font-size="23" font-weight="900" fill="#C8972A" letter-spacing="3">ALPHAVISION.AI</text>
   <text x="${W - 196}" y="${topBarY}" font-family="Liberation Sans,Arial,sans-serif" font-size="20" fill="#505050">${escapeXml(dateStr)}</text>
@@ -273,11 +282,11 @@ export async function generateAndUploadImages(prompts: string[]): Promise<string
   return urls;
 }
 
-// 3D transitions matched to AlphaVision AI brand:
-//   zoomin     = zoom into the market signal
-//   squeezeh   = 3D horizontal flip (like a trade closing)
-//   horzopen   = dashboard panel opening
-//   circleclose = signal detected, window closing
+// Transitions themed around AlphaVision AI:
+//  zoomin      = zoom into the signal
+//  squeezeh    = 3D horizontal flip (trade executing)
+//  horzopen    = dashboard panel opening
+//  circleclose = signal window closing
 const REEL_TRANSITIONS = ["zoomin", "squeezeh", "horzopen", "circleclose"];
 
 export async function generateAndUploadReelVideo(prompts: string[]): Promise<string[]> {
@@ -288,7 +297,6 @@ export async function generateAndUploadReelVideo(prompts: string[]): Promise<str
     const framePrompts = prompts.slice(0, 5);
     if (framePrompts.length === 0) return [];
 
-    // 1. Generate PNG frames
     const framePaths: string[] = [];
     for (let i = 0; i < framePrompts.length; i++) {
       const data = parseImagePrompt(framePrompts[i]);
@@ -300,23 +308,18 @@ export async function generateAndUploadReelVideo(prompts: string[]): Promise<str
       log.info(`Frame ${i + 1}/${framePrompts.length} generado`);
     }
 
-    const N                  = framePaths.length;
-    const FRAME_DURATION     = 3.5;   // seconds each frame is visible
-    const TRANSITION_DURATION = 0.5;  // seconds for xfade
-    // offset[i] = i * (FRAME_DURATION - TRANSITION_DURATION)
-    // e.g. i=1 -> 3.0s, i=2 -> 6.0s, i=3 -> 9.0s, i=4 -> 12.0s
+    const N                   = framePaths.length;
+    const FRAME_DURATION      = 3.5;
+    const TRANSITION_DURATION = 0.5;
 
-    // 2. Build ffmpeg filter_complex with xfade 3D transitions
     const inputArgs = framePaths
       .map((p) => `-loop 1 -t ${FRAME_DURATION} -i "${p}"`)
       .join(" ");
 
     const filterParts: string[] = [];
-    // Scale each input
     for (let i = 0; i < N; i++) {
       filterParts.push(`[${i}:v]scale=1080:1920,fps=30,format=yuv420p[v${i}]`);
     }
-    // Chain xfade transitions
     let prev = "v0";
     for (let i = 1; i < N; i++) {
       const transition = REEL_TRANSITIONS[(i - 1) % REEL_TRANSITIONS.length];
@@ -326,15 +329,12 @@ export async function generateAndUploadReelVideo(prompts: string[]): Promise<str
       prev = next;
     }
 
-    const filterComplex = filterParts.join(";");
-    const videoPath     = join(tmpDir, "reel.mp4");
-    const audioInput    = N; // index of the lavfi audio source
-
+    const videoPath = join(tmpDir, "reel.mp4");
     const cmd =
       `ffmpeg ${inputArgs} ` +
       `-f lavfi -i "anullsrc=channel_layout=stereo:sample_rate=44100" ` +
-      `-filter_complex "${filterComplex}" ` +
-      `-map "[vout]" -map "${audioInput}:a" ` +
+      `-filter_complex "${filterParts.join(";")}" ` +
+      `-map "[vout]" -map "${N}:a" ` +
       `-c:v libx264 -preset fast -crf 23 -pix_fmt yuv420p ` +
       `-c:a aac -b:a 128k -shortest ` +
       `-y "${videoPath}"`;

@@ -47,7 +47,6 @@ async function publishReel(
     share_to_feed: true,
     access_token: token,
   });
-  // Videos tardan más: 40 intentos × 15s = 10 min máximo
   if (container.id) await waitForContainer(container.id, token, 40, 15000);
   const published = await apiPost(`${BASE}/${accountId}/media_publish`, {
     creation_id: container.id,
@@ -110,14 +109,18 @@ export async function publishToInstagram(
   hashtags: string[],
   mediaUrls: string[],
 ): Promise<string> {
-  const token = process.env.INSTAGRAM_ACCESS_TOKEN;
+  const token     = process.env.INSTAGRAM_ACCESS_TOKEN;
   const accountId = process.env.INSTAGRAM_BUSINESS_ACCOUNT_ID;
 
   if (!token || !accountId) {
-    log.warn("Instagram Graph API no configurada — simulando publicación");
-    log.info(`  tipo: ${tipo} | media: ${mediaUrls.length}`);
-    log.info(`  caption: ${caption.substring(0, 120)}...`);
-    return `ig_placeholder_${Date.now()}`;
+    const missing = [
+      !token     && "INSTAGRAM_ACCESS_TOKEN",
+      !accountId && "INSTAGRAM_BUSINESS_ACCOUNT_ID",
+    ].filter(Boolean).join(", ");
+    throw new Error(
+      `Secrets de Instagram no configurados: ${missing}. ` +
+      `Ve a GitHub → Settings → Secrets and variables → Actions y añádelos.`,
+    );
   }
 
   if (mediaUrls.length === 0) throw new Error("No hay media para publicar en Instagram");

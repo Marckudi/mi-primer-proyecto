@@ -10,7 +10,8 @@ export type ContentType =
   | "recap_semanal"
   | "setup_mra"
   | "reel_viral"
-  | "reel_marca";
+  | "reel_marca"
+  | "setup_manual";
 
 export type PostTipo = "post" | "reel" | "carrusel" | "story";
 export type PostStatus = "pending" | "published" | "failed";

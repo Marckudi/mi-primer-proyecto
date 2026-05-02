@@ -38,6 +38,10 @@ const BADGE_ACCENT: Record<string, string> = {
   "ALPHA":    "#C8972A",
 };
 
+// Candle colors are always fixed regardless of badge accent
+const CANDLE_BULL = "#C8972A"; // gold — alcista
+const CANDLE_BEAR = "#ffffff"; // white — bajista
+
 function accentFor(badge?: string): string {
   if (!badge) return "#E8553E";
   const up = badge.toUpperCase();
@@ -97,15 +101,11 @@ function wrapText(text: string, maxChars: number): string[] {
   return lines.length ? lines : [""];
 }
 
-/**
- * Picks the largest font size where every line fits within availableWidth.
- * Factor 0.75 is conservative for bold uppercase Liberation Sans / Arial Black.
- */
 function fitHeadline(headline: string, availableWidth: number): { lines: string[]; fontSize: number; lineH: number } {
   const FACTOR = 0.75;
   for (const fontSize of [86, 74, 64, 56, 48, 40]) {
-    const maxChars = Math.floor(availableWidth / (fontSize * FACTOR));
-    const lines    = wrapText(headline, maxChars);
+    const maxChars  = Math.floor(availableWidth / (fontSize * FACTOR));
+    const lines     = wrapText(headline, maxChars);
     const longestPx = Math.max(...lines.map((l) => l.length)) * fontSize * FACTOR;
     if (longestPx <= availableWidth && lines.length <= 5) {
       return { lines, fontSize, lineH: fontSize * 1.15 };
@@ -130,20 +130,16 @@ function cornerBracket(x: number, y: number, size: number, color: string, flipX 
 
 /**
  * Generates a realistic bullish-breakout OHLC sequence.
- * Phase 1: Asian ranging/slight drift down to stop zone.
- * Phase 2: Pre-London consolidation finding support.
- * Phase 3: London breakout candles driving toward target.
+ * Phase 1: Asian ranging. Phase 2: Pre-London support. Phase 3: London breakout.
  */
 function generateCandles(entry: number, stop: number, target: number, N = 15): Candle[] {
-  const range   = Math.abs(target - entry) + Math.abs(entry - stop);
-  const tick    = range / 120;
+  const range  = Math.abs(target - entry) + Math.abs(entry - stop);
+  const tick   = range / 120;
   const candles: Candle[] = [];
 
-  // Phase 1 — ranging slightly below entry (5 candles)
   let price = stop + (entry - stop) * 0.4;
   for (let i = 0; i < 5; i++) {
     const drift = (Math.random() - 0.52) * tick * 3;
-    const bodySize = tick * (1 + Math.random() * 2);
     const o = price;
     const c = o + drift;
     const h = Math.max(o, c) + tick * (0.5 + Math.random());
@@ -152,7 +148,6 @@ function generateCandles(entry: number, stop: number, target: number, N = 15): C
     price = c;
   }
 
-  // Phase 2 — finding support near stop, slight bullish bias (3 candles)
   price = stop + (entry - stop) * 0.15;
   for (let i = 0; i < 3; i++) {
     const o = price;
@@ -163,17 +158,15 @@ function generateCandles(entry: number, stop: number, target: number, N = 15): C
     price = c;
   }
 
-  // Phase 3 — London breakout impulse toward target (N-8 candles)
   price = entry - tick;
   const remaining = N - 8;
   for (let i = 0; i < remaining; i++) {
-    const progress = i / remaining;
-    const bullBias = tick * (3 + progress * 4);
+    const progress   = i / remaining;
+    const bullBias   = tick * (3 + progress * 4);
     const o = price;
     const c = o + bullBias * (0.7 + Math.random() * 0.6);
     const h = Math.max(o, c) + tick * (0.5 + Math.random());
     const l = Math.min(o, c) - tick * (0.2 + Math.random() * 0.4);
-    // Every 3rd candle is a small bearish pullback
     const isBearPullback = i > 0 && i % 3 === 2;
     const finalC = isBearPullback ? o - tick * (0.8 + Math.random()) : c;
     candles.push({
@@ -188,43 +181,68 @@ function generateCandles(entry: number, stop: number, target: number, N = 15): C
   return candles;
 }
 
-/** Renders OHLC candles as SVG within the given bounding box. */
+/** Renders OHLC candles + price level lines as SVG. */
 function buildCandleChart(
   candles: Candle[],
   chartX: number, chartY: number,
   chartW: number, chartH: number,
-  accent: string,
+  levelEntry?: number,
+  levelStop?: number,
+  levelTarget?: number,
 ): string {
   const prices = candles.flatMap((c) => [c.h, c.l]);
-  const pMin = Math.min(...prices) - (Math.max(...prices) - Math.min(...prices)) * 0.05;
-  const pMax = Math.max(...prices) + (Math.max(...prices) - Math.min(...prices)) * 0.05;
-  const toY  = (p: number) => chartY + chartH - ((p - pMin) / (pMax - pMin)) * chartH;
+  const pMin   = Math.min(...prices) - (Math.max(...prices) - Math.min(...prices)) * 0.05;
+  const pMax   = Math.max(...prices) + (Math.max(...prices) - Math.min(...prices)) * 0.05;
+  const toY    = (p: number) => chartY + chartH - ((p - pMin) / (pMax - pMin)) * chartH;
 
   const N    = candles.length;
   const slot = chartW / N;
   const bw   = Math.max(Math.floor(slot * 0.55), 4);
   const parts: string[] = [];
 
+  // Candles — bullish=gold, bearish=white
   candles.forEach((c, i) => {
     const cx     = chartX + i * slot + slot / 2;
     const isBull = c.c >= c.o;
-    const color  = isBull ? accent : "#ffffff";
+    const color  = isBull ? CANDLE_BULL : CANDLE_BEAR;
     const bTop   = toY(Math.max(c.o, c.c));
     const bBot   = toY(Math.min(c.o, c.c));
     const bH     = Math.max(bBot - bTop, 1.5);
-    const bodyOp = isBull ? "0.70" : "0.45";
+    const bodyOp = isBull ? "0.72" : "0.45";
     const wickOp = (parseFloat(bodyOp) * 0.5).toFixed(2);
-
     parts.push(
       `<line x1="${cx.toFixed(1)}" y1="${toY(c.h).toFixed(1)}" x2="${cx.toFixed(1)}" y2="${toY(c.l).toFixed(1)}" stroke="${color}" stroke-width="1.5" opacity="${wickOp}"/>`,
       `<rect x="${(cx - bw / 2).toFixed(1)}" y="${bTop.toFixed(1)}" width="${bw}" height="${bH.toFixed(1)}" fill="${color}" opacity="${bodyOp}" rx="1"/>`,
     );
   });
 
+  // Price level lines
+  const inBounds = (p: number) => p >= pMin && p <= pMax;
+  if (levelStop   !== undefined && inBounds(levelStop)) {
+    const y = toY(levelStop).toFixed(1);
+    parts.push(
+      `<line x1="${chartX}" y1="${y}" x2="${chartX + chartW}" y2="${y}" stroke="#E8553E" stroke-width="1.5" stroke-dasharray="8,4" opacity="0.55"/>`,
+      `<text x="${chartX + chartW - 6}" y="${(parseFloat(y) - 5).toFixed(0)}" text-anchor="end" font-family="Arial,sans-serif" font-size="19" fill="#E8553E" opacity="0.65">SL</text>`,
+    );
+  }
+  if (levelEntry  !== undefined && inBounds(levelEntry)) {
+    const y = toY(levelEntry).toFixed(1);
+    parts.push(
+      `<line x1="${chartX}" y1="${y}" x2="${chartX + chartW}" y2="${y}" stroke="#ffffff" stroke-width="1.5" stroke-dasharray="8,4" opacity="0.50"/>`,
+      `<text x="${chartX + chartW - 6}" y="${(parseFloat(y) - 5).toFixed(0)}" text-anchor="end" font-family="Arial,sans-serif" font-size="19" fill="#ffffff" opacity="0.55">ENTRADA</text>`,
+    );
+  }
+  if (levelTarget !== undefined && inBounds(levelTarget)) {
+    const y = toY(levelTarget).toFixed(1);
+    parts.push(
+      `<line x1="${chartX}" y1="${y}" x2="${chartX + chartW}" y2="${y}" stroke="#C8972A" stroke-width="1.5" stroke-dasharray="8,4" opacity="0.65"/>`,
+      `<text x="${chartX + chartW - 6}" y="${(parseFloat(y) - 5).toFixed(0)}" text-anchor="end" font-family="Arial,sans-serif" font-size="19" fill="#C8972A" opacity="0.70">TP</text>`,
+    );
+  }
+
   return parts.join("\n  ");
 }
 
-/** Extracts a numeric price from a stat value string (e.g. "1.0842" → 1.0842). */
 function parsePrice(v: string): number | null {
   const m = v.replace(/[$,€£]/g, "").match(/[\d.]+/);
   return m ? parseFloat(m[0]) : null;
@@ -251,10 +269,10 @@ function buildSVG(data: ImageData, W = 1080, H = 1080): string {
   const subLines = data.subtitle
     ? wrapText(data.subtitle, Math.floor(contentW / (29 * 0.55)))
     : [];
-  const subY    = y;  const subLH = Math.round(44 * scale);  y += subLines.length * subLH + Math.round(44 * scale);
+  const subY  = y;  const subLH = Math.round(44 * scale);  y += subLines.length * subLH + Math.round(44 * scale);
 
-  const stats   = (data.stats ?? []).slice(0, 2);
-  const stY     = y;  const stH = Math.round(132 * scale);
+  const stats  = (data.stats ?? []).slice(0, 2);
+  const stY    = y;  const stH = Math.round(132 * scale);
   if (stats.length) y += stH + Math.round(20 * scale);
 
   const annLines = data.annotation ? fitAnnotation(data.annotation, contentW - 44) : [];
@@ -262,34 +280,35 @@ function buildSVG(data: ImageData, W = 1080, H = 1080): string {
   const annH     = annLines.length > 1 ? Math.round(86 * scale) : Math.round(62 * scale);
   if (annLines.length) y += annH + Math.round(18 * scale);
 
-  const bullY    = y;
-  const bullLH   = Math.round(42 * scale);
+  const bullY = y;
+  const bullLH = Math.round(42 * scale);
 
-  // ─ Candlestick chart background ──────────────────────────────────────────
-  // Try to extract entry/stop/target from stats + annotation for realistic scaling
-  let entry = 1.0;
-  let stop  = 0.97;
-  let target = 1.03;
+  // Extract price levels from stats + annotation for chart lines
+  let levelEntry: number | undefined;
+  let levelStop:  number | undefined;
+  let levelTarget: number | undefined;
   if (stats.length >= 1) {
     const p = parsePrice(stats[0].value);
-    if (p) entry = p;
+    if (p && p > 0.1) levelEntry = p;
   }
   const annText = data.annotation ?? "";
   const stopM   = annText.match(/[Ss]top[:\s]+([\d.]+)/);
   const tgtM    = annText.match(/[Tt]arget[:\s]+([\d.]+)/);
-  if (stopM)  stop   = parseFloat(stopM[1]);
-  if (tgtM)   target = parseFloat(tgtM[1]);
-  // Fallback: use ±2% if annotation has no stop/target
-  if (stop === 0.97 && entry !== 1.0) { stop = entry * 0.98; target = entry * 1.03; }
+  if (stopM)  levelStop   = parseFloat(stopM[1]);
+  if (tgtM)   levelTarget = parseFloat(tgtM[1]);
+  // Fallback price levels
+  const e = levelEntry ?? 1.0;
+  if (!levelStop   && levelEntry) levelStop   = e * 0.98;
+  if (!levelTarget && levelEntry) levelTarget = e * 1.03;
 
+  // Chart background
   const chartTop  = isReel ? Math.round(H * 0.42) : Math.round(H * 0.36);
   const chartBot  = H - 80;
   const chartH_px = chartBot - chartTop;
-  const candles   = generateCandles(entry, stop, target, 15);
-  const chartSvg  = buildCandleChart(candles, 0, chartTop, W, chartH_px, accent);
+  const candles   = generateCandles(levelEntry ?? e, levelStop ?? e * 0.98, levelTarget ?? e * 1.03, 15);
+  const chartSvg  = buildCandleChart(candles, 0, chartTop, W, chartH_px, levelEntry, levelStop, levelTarget);
 
-  // Gradient fades chart into background so text remains readable
-  const chartFadeId = `chartFade_${W}x${H}`;
+  const chartFadeId  = `cf_${W}x${H}`;
   const chartFadeDef = `
     <linearGradient id="${chartFadeId}" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0%"   stop-color="#080604" stop-opacity="0.90"/>
@@ -299,11 +318,11 @@ function buildSVG(data: ImageData, W = 1080, H = 1080): string {
     </linearGradient>`;
   const chartOverlay = `<rect x="0" y="${chartTop}" width="${W}" height="${chartH_px}" fill="url(#${chartFadeId})"/>`;
 
-  // ─ Badge ─────────────────────────────────────────────────────────────────
+  // Badge
   const badgeLabel = stripEmoji(`${data.badgeEmoji ?? ""} ${data.badge ?? "BREAKING"}`);
   const bTextW     = Math.min(Math.max(badgeLabel.length * 14 + 52, 130), contentW);
 
-  // ─ SVG fragments ─────────────────────────────────────────────────────────
+  // SVG fragments
   const hlSvg = hlLines.map((ln, i) =>
     `<text x="${PAD}" y="${hlY + i * hlLineH}" font-family="Liberation Sans,Arial Black,Impact,sans-serif" font-size="${hlSize}" font-weight="900" fill="white">${escapeXml(ln)}</text>`
   ).join("\n  ");
@@ -336,7 +355,7 @@ function buildSVG(data: ImageData, W = 1080, H = 1080): string {
     return `<text x="${PAD}" y="${bullY + i * bullLH + 30}" font-family="Liberation Sans,Arial,sans-serif" font-size="23" fill="#666666">${escapeXml(txt)}</text>`;
   }).join("\n  ");
 
-  // ─ Depth design elements ─────────────────────────────────────────────────
+  // Depth design elements
   const motionStripe = `
   <polygon points="0,${H * 0.72} ${W * 0.28},${H} 0,${H}" fill="${accent}" fill-opacity="0.03"/>
   <polygon points="0,${H * 0.78} ${W * 0.18},${H} 0,${H}" fill="${accent}" fill-opacity="0.02"/>`;
@@ -355,36 +374,23 @@ function buildSVG(data: ImageData, W = 1080, H = 1080): string {
   </defs>
   <rect width="${W}" height="${H}" fill="#080604"/>
   <rect width="${W}" height="${H}" fill="url(#bgGlow)"/>
-  <!-- candlestick chart background -->
   ${chartSvg}
   ${chartOverlay}
-  <!-- depth elements -->
   ${motionStripe}${scanLine}${leftEdge}
-  <!-- top bar -->
   <text x="${PAD}" y="${topBarY}" font-family="Liberation Sans,Arial Black,sans-serif" font-size="23" font-weight="900" fill="#C8972A" letter-spacing="3">ALPHAVISION.AI</text>
   <text x="${W - 196}" y="${topBarY}" font-family="Liberation Sans,Arial,sans-serif" font-size="20" fill="#505050">${escapeXml(dateStr)}</text>
   <circle cx="${W - 50}" cy="${topBarY - 7}" r="15" fill="none" stroke="${accent}" stroke-width="2"/>
   <circle cx="${W - 50}" cy="${topBarY - 7}" r="6" fill="${accent}"/>
-  <!-- separator -->
   <rect x="${PAD}" y="${sepY}" width="${contentW}" height="1" fill="#1e1810"/>
-  <!-- badge -->
   <rect x="${PAD}" y="${badgeRY}" width="${bTextW}" height="${bH}" rx="${bH / 2}" fill="${accent}" fill-opacity="0.15" stroke="${accent}" stroke-width="1.5"/>
   <text x="${PAD + bTextW / 2}" y="${badgeRY + 33}" text-anchor="middle" font-family="Liberation Sans,Arial Black,sans-serif" font-size="20" font-weight="900" fill="${accent}">${escapeXml(badgeLabel)}</text>
-  <!-- headline -->
   ${hlSvg}
-  <!-- gold divider -->
   <rect x="${PAD}" y="${divY}" width="220" height="2" rx="1" fill="${accent}"/>
-  <!-- subtitle -->
   ${subSvg}
-  <!-- stats -->
   ${statsSvg}
-  <!-- annotation -->
   ${annSvg}
-  <!-- bullets -->
   ${bullSvg}
-  <!-- corner brackets -->
   ${brackets}
-  <!-- watermark -->
   <text x="${W - PAD + 8}" y="${H - 34}" text-anchor="end" font-family="Liberation Sans,Arial,sans-serif" font-size="21" fill="#2e2820">@alphavision.ai</text>
 </svg>`;
 }
@@ -420,11 +426,6 @@ export async function generateAndUploadImages(prompts: string[]): Promise<string
   return urls;
 }
 
-// Transitions themed around AlphaVision AI:
-//  zoomin      = zoom into the signal
-//  squeezeh    = 3D horizontal flip (trade executing)
-//  horzopen    = dashboard panel opening
-//  circleclose = signal window closing
 const REEL_TRANSITIONS = ["zoomin", "squeezeh", "horzopen", "circleclose"];
 
 export async function generateAndUploadReelVideo(prompts: string[]): Promise<string[]> {
@@ -450,9 +451,7 @@ export async function generateAndUploadReelVideo(prompts: string[]): Promise<str
     const FRAME_DURATION      = 3.5;
     const TRANSITION_DURATION = 0.5;
 
-    const inputArgs = framePaths
-      .map((p) => `-loop 1 -t ${FRAME_DURATION} -i "${p}"`)
-      .join(" ");
+    const inputArgs = framePaths.map((p) => `-loop 1 -t ${FRAME_DURATION} -i "${p}"`).join(" ");
 
     const filterParts: string[] = [];
     for (let i = 0; i < N; i++) {

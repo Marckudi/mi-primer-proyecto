@@ -57,7 +57,7 @@ interface Template {
   prompt: string;
 }
 
-const TEMPLATES: Record<ContentType, Template> = {
+const TEMPLATES: Record<Exclude<ContentType, "setup_manual">, Template> = {
 
   reel_marca: {
     tipo: "reel",
@@ -244,11 +244,101 @@ Responde ÚNICAMENTE con JSON:
   },
 };
 
+/** Genera contenido directamente desde env vars — no llama a Claude para los imagePrompts */
+async function generateSetupManual(): Promise<{ generated: GeneratedContent; tipo: PostTipo; needsImages: boolean }> {
+  const pair      = process.env.SETUP_PAIR      || "EUR/USD";
+  const direction = process.env.SETUP_DIRECTION || "COMPRA";
+  const entry     = process.env.SETUP_ENTRY     || "1.0842";
+  const stop      = process.env.SETUP_STOP      || "1.0808";
+  const target    = process.env.SETUP_TARGET    || "1.0930";
+  const score     = process.env.SETUP_SCORE     || "8";
+  const session   = process.env.SETUP_SESSION   || "Londres";
+  const format    = process.env.SETUP_FORMAT    || "reel";
+  const tipo: PostTipo = format === "reel" ? "reel" : "post";
+
+  // Calcular R:R
+  const entryN = parseFloat(entry);
+  const stopN  = parseFloat(stop);
+  const tgtN   = parseFloat(target);
+  const rr     = Math.abs(tgtN - entryN) > 0 && Math.abs(entryN - stopN) > 0
+    ? (Math.abs(tgtN - entryN) / Math.abs(entryN - stopN)).toFixed(1)
+    : "?";
+
+  const badge = pair.includes("XAU") || pair.includes("GOLD") ? "GOLD ALERT" : "SEÑAL MRA";
+
+  const imagePrompt = JSON.stringify({
+    badge,
+    headline: `${direction.toUpperCase()} ${pair} SESION ${session.toUpperCase()}`,
+    subtitle: `Score MRA: ${score}/10. Ventana activa.`,
+    stats: [
+      { label: "ENTRADA", value: entry },
+      { label: "SCORE MRA", value: `${score} / 10` },
+    ],
+    annotation: `Stop: ${stop} — Target: ${target} — R:R ${rr}`,
+    bullets: [
+      `Sesion ${session} 07:55 - 10:40 CET`,
+      `${pair} ${direction} — confluencia MRA confirmada`,
+      `Stop: ${stop} | Target: ${target} | R:R ${rr}`,
+      `AURA activa alerta de voz en entrada`,
+    ],
+  });
+
+  // Usar Claude solo para el caption
+  const news  = await fetchCurrentNews();
+  const today = new Date().toLocaleDateString("es-ES", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
+  const context = news ? `NOTICIAS (${today}):\n${news}\n\n` : `FECHA: ${today}\n\n`;
+
+  const message = await anthropic.messages.create({
+    model: "claude-opus-4-7",
+    max_tokens: 1500,
+    system: SYSTEM_PROMPT,
+    messages: [{
+      role: "user",
+      content: `${context}Genera SOLO el caption y hashtags (sin imagePrompts) para este setup MRA real:\n` +
+        `Par: ${pair} | Dirección: ${direction} | Entrada: ${entry} | Stop: ${stop} | Target: ${target} | Score: ${score}/10 | Sesión: ${session}\n\n` +
+        `Responde ÚNICAMENTE con JSON:\n{\n  "caption": "caption viral con los datos exactos, máx 2200 chars",\n  "hashtags": ["máximo 5 hashtags sin #"]\n}`,
+    }],
+  });
+
+  const textBlock = message.content.find((b) => b.type === "text");
+  const raw = textBlock?.type === "text" ? textBlock.text.trim() : "";
+
+  let caption  = `${direction} ${pair} — Score MRA ${score}/10 — Stop: ${stop} | Target: ${target}`;
+  let hashtags = ["trading", "forex", "tradingview", "forextrading", "alphavision"];
+
+  try {
+    const jsonStr = raw.match(/```(?:json)?\s*([\s\S]+?)\s*```/)?.[1] ?? raw;
+    const parsed  = JSON.parse(jsonStr) as { caption?: unknown; hashtags?: unknown };
+    if (parsed.caption)  caption  = String(parsed.caption);
+    if (Array.isArray(parsed.hashtags)) hashtags = (parsed.hashtags as string[]).slice(0, 5);
+  } catch {
+    log.warn("No se pudo parsear JSON del caption — usando fallback");
+  }
+
+  // Reels: 5 frames (intro + 4 variaciones del mismo setup)
+  const imagePrompts = tipo === "reel"
+    ? [
+        imagePrompt,
+        JSON.stringify({ badge, headline: `ENTRADA CONFIRMADA ${pair}`, subtitle: `Sesion ${session}. Score ${score}/10.`, stats: [{ label: "ENTRADA", value: entry }, { label: "R:R", value: rr }], annotation: `Stop: ${stop} — Target: ${target}` }),
+        JSON.stringify({ badge, headline: `STOP: ${stop}`, subtitle: "Nivel de invalidación del setup.", stats: [{ label: "RIESGO", value: `${Math.abs(entryN - stopN).toFixed(4)}` }, { label: "PIPS", value: `${Math.round(Math.abs(entryN - stopN) * 10000)}` }], annotation: `Gestión de riesgo: nunca más del 1% del capital` }),
+        JSON.stringify({ badge, headline: `TARGET: ${target}`, subtitle: "Nivel de toma de beneficios.", stats: [{ label: "TARGET", value: target }, { label: "BENEFICIO", value: `${Math.abs(tgtN - entryN).toFixed(4)}` }], annotation: `R:R ${rr} — AlphaVision AI` }),
+        JSON.stringify({ badge: "ALPHAVISION AI", headline: "SIGUE LOS SETUPS EN TIEMPO REAL", subtitle: "Activa las notificaciones para no perderte nada.", annotation: "Comenta MRA para recibir info por DM", bullets: ["Score MRA diario", "Ventana: 07:55 - 10:40 CET", "AURA alerta de voz en tiempo real"] }),
+      ]
+    : [imagePrompt];
+
+  return { tipo, needsImages: true, generated: { caption, hashtags, imagePrompts } };
+}
+
 export async function generateContent(contentType: ContentType): Promise<{
   generated: GeneratedContent;
   tipo: PostTipo;
   needsImages: boolean;
 }> {
+  if (contentType === "setup_manual") {
+    log.info("Generando contenido: setup_manual (desde env vars)");
+    return generateSetupManual();
+  }
+
   const template = TEMPLATES[contentType];
   log.info(`Generando contenido: ${contentType}`);
 

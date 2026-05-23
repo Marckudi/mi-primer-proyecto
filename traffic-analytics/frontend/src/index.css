@@ -1,0 +1,57 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply font-sans antialiased bg-gray-50 text-gray-900;
+  }
+  * {
+    box-sizing: border-box;
+  }
+}
+
+@layer components {
+  .card {
+    @apply bg-white rounded-xl border border-gray-100 shadow-sm;
+  }
+  .btn-primary {
+    @apply bg-teal-600 hover:bg-teal-500 text-white font-semibold px-5 py-2.5 rounded-lg transition-colors;
+  }
+  .btn-ghost {
+    @apply text-gray-600 hover:text-brand-600 hover:bg-brand-50 px-3 py-2 rounded-lg transition-colors;
+  }
+  .metric-card {
+    @apply card p-5 flex flex-col gap-1;
+  }
+  .badge-new {
+    @apply text-xs font-semibold bg-brand-100 text-brand-700 px-2 py-0.5 rounded-full;
+  }
+  .tab-btn {
+    @apply px-4 py-2.5 text-sm font-medium rounded-lg transition-colors whitespace-nowrap;
+  }
+  .tab-btn-active {
+    @apply bg-brand-600 text-white;
+  }
+  .tab-btn-inactive {
+    @apply text-gray-600 hover:text-brand-600 hover:bg-brand-50;
+  }
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #9ca3af; }
+
+/* Skeleton */
+.skeleton {
+  @apply animate-pulse bg-gray-200 rounded;
+}
+
+/* Chart tooltip */
+.recharts-tooltip-wrapper .recharts-default-tooltip {
+  border: 1px solid #e5e7eb !important;
+  border-radius: 8px !important;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08) !important;
+}

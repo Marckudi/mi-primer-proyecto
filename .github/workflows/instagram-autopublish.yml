@@ -23,6 +23,8 @@ jobs:
           ref: claude/breaking-news-image-format-dh3K8
 
       - name: Instalar dependencias del sistema
+
+      - name: Instalar fuentes y ffmpeg
         run: sudo apt-get install -y fonts-liberation ffmpeg
 
       - name: Instalar Node.js

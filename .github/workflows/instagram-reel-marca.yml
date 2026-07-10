@@ -8,6 +8,21 @@ on:
 jobs:
   reel-marca:
     runs-on: ubuntu-latest
+
+    # Martes y Jueves a las 16:00 UTC (18:00 CEST)
+    - cron: '0 16 * * 2,4'
+  workflow_dispatch:
+    inputs:
+      forzar:
+        description: 'Forzar ejecución ahora'
+        required: false
+        default: 'true'
+
+jobs:
+  reel:
+    runs-on: ubuntu-latest
+
+
     steps:
       - name: Checkout código
         uses: actions/checkout@v4
@@ -15,6 +30,9 @@ jobs:
           ref: claude/breaking-news-image-format-dh3K8
 
       - name: Instalar dependencias del sistema
+
+      - name: Instalar fuentes y ffmpeg
+
         run: sudo apt-get install -y fonts-liberation ffmpeg
 
       - name: Instalar Node.js
@@ -24,8 +42,10 @@ jobs:
 
       - name: Instalar dependencias
         run: npm install
-
       - name: Publicar reel de marca (Instagram + TikTok)
+
+      - name: Publicar reel de marca
+
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}

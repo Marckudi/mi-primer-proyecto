@@ -1,0 +1,89 @@
+name: AlphaVision — Publicar Setup MRA
+
+on:
+  workflow_dispatch:
+    inputs:
+      pair:
+        description: 'Par de divisas'
+        required: true
+        default: 'EUR/USD'
+        type: choice
+        options:
+          - 'EUR/USD'
+          - 'GBP/USD'
+          - 'XAU/USD'
+      direction:
+        description: 'Dirección de la operativa'
+        required: true
+        type: choice
+        options:
+          - 'COMPRA'
+          - 'VENTA'
+        default: 'COMPRA'
+      entry:
+        description: 'Precio de entrada (ej: 1.0842)'
+        required: true
+      stop:
+        description: 'Stop loss (ej: 1.0808)'
+        required: true
+      target:
+        description: 'Target / TP (ej: 1.0930)'
+        required: true
+      score:
+        description: 'Score MRA (1-10)'
+        required: true
+        default: '8'
+      session:
+        description: 'Sesión de mercado'
+        required: true
+        type: choice
+        options:
+          - 'Londres'
+          - 'Frankfurt'
+          - 'Nueva York'
+        default: 'Londres'
+      format:
+        description: 'Formato de publicación'
+        required: true
+        type: choice
+        options:
+          - 'reel'
+          - 'post'
+        default: 'reel'
+
+jobs:
+  publish-setup:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v4
+
+      - name: Instalar fuentes y ffmpeg
+        run: sudo apt-get install -y fonts-liberation ffmpeg
+
+      - name: Instalar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Instalar dependencias
+        run: npm install
+
+      - name: Publicar setup MRA en Instagram
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          INSTAGRAM_ACCESS_TOKEN: ${{ secrets.INSTAGRAM_ACCESS_TOKEN }}
+          INSTAGRAM_BUSINESS_ACCOUNT_ID: ${{ secrets.INSTAGRAM_BUSINESS_ACCOUNT_ID }}
+          CONTENT_TYPE_OVERRIDE: setup_manual
+          SETUP_PAIR: ${{ github.event.inputs.pair }}
+          SETUP_DIRECTION: ${{ github.event.inputs.direction }}
+          SETUP_ENTRY: ${{ github.event.inputs.entry }}
+          SETUP_STOP: ${{ github.event.inputs.stop }}
+          SETUP_TARGET: ${{ github.event.inputs.target }}
+          SETUP_SCORE: ${{ github.event.inputs.score }}
+          SETUP_SESSION: ${{ github.event.inputs.session }}
+          SETUP_FORMAT: ${{ github.event.inputs.format }}
+        run: npm start

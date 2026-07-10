@@ -1,0 +1,51 @@
+name: AlphaVision Instagram Auto-Publish
+
+on:
+  schedule:
+    # Lunes-Viernes: post de las 10:00 UTC (12:00 CEST)
+    - cron: '0 10 * * 1-5'
+    # Lunes-Viernes: post de las 18:00 UTC (20:00 CEST)
+    - cron: '0 18 * * 1-5'
+    # Sábado: carrusel a las 12:00 UTC (14:00 CEST)
+    - cron: '0 12 * * 6'
+    # Domingo: preview a las 18:00 UTC (20:00 CEST)
+    - cron: '0 18 * * 0'
+  workflow_dispatch:
+    inputs:
+      force_all:
+        description: 'Forzar publicación de todos los slots del día (para pruebas)'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'false'
+          - 'true'
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v4
+
+      - name: Instalar fuentes y ffmpeg
+        run: sudo apt-get install -y fonts-liberation ffmpeg
+
+      - name: Instalar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Instalar dependencias
+        run: npm install
+
+      - name: Ejecutar bot
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          INSTAGRAM_ACCESS_TOKEN: ${{ secrets.INSTAGRAM_ACCESS_TOKEN }}
+          INSTAGRAM_BUSINESS_ACCOUNT_ID: ${{ secrets.INSTAGRAM_BUSINESS_ACCOUNT_ID }}
+          FORCE_ALL_SLOTS: ${{ github.event.inputs.force_all || 'false' }}
+        run: npm start

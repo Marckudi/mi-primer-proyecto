@@ -5,9 +5,15 @@
  *   - Mejoras UX/SEO/conversión
  *   - Estado técnico
  *   - Sugerencias pequeñas
+ *
+ * NOTA (fix): alphavisionai.es es una SPA de React. Un fetch() plano solo
+ * descarga el HTML "cáscara" (~10 palabras, solo <head>) antes de que React
+ * pinte el contenido real. Por eso ahora renderizamos la página con un
+ * navegador headless (Playwright) y analizamos el HTML ya renderizado.
  */
 
 import Anthropic from "@anthropic-ai/sdk";
+import { chromium } from "playwright";
 
 const SITE        = "https://alphavisionai.es";
 const GITHUB_API  = "https://api.github.com";
@@ -63,19 +69,19 @@ function extractTextContent(html: string): string {
 
 async function fetchPage(url: string): Promise<PageData> {
   const t0 = Date.now();
+  const browser = await chromium.launch({ args: ["--no-sandbox"] });
   try {
-    const res = await fetch(url, {
-      headers: {
-        "User-Agent": "AlphaVisionAI-WebAnalyzer/1.0",
-        "Accept": "text/html,application/xhtml+xml;q=0.9,*/*;q=0.8",
-        "Accept-Language": "es-ES,es;q=0.9,en;q=0.8",
-      },
-      signal: AbortSignal.timeout(25000),
-      redirect: "follow",
+    const page = await browser.newPage({
+      userAgent: "AlphaVisionAI-WebAnalyzer/1.0",
+      extraHTTPHeaders: { "Accept-Language": "es-ES,es;q=0.9,en;q=0.8" },
     });
+    const res = await page.goto(url, { waitUntil: "networkidle", timeout: 25000 });
+    // Espera breve extra por si algún componente tarda en montar tras networkidle
+    await page.waitForTimeout(800);
+
     const loadMs = Date.now() - t0;
-    const csp    = res.headers.get("content-security-policy") ?? "";
-    const html   = await res.text();
+    const csp    = res?.headers()["content-security-policy"] ?? "";
+    const html   = await page.content(); // HTML YA renderizado por React, no la cáscara
 
     // Extraer metadatos
     const title    = html.match(/<title[^>]*>([^<]+)<\/title>/i)?.[1]?.trim() ?? "";
@@ -125,7 +131,7 @@ async function fetchPage(url: string): Promise<PageData> {
     const hasCtaButton    = /<button|type=["']submit["']|class=["'][^"']*btn[^"']*["']/i.test(html);
 
     return {
-      url, status: res.status, loadMs, title, metaDesc, langAttr,
+      url, status: res?.status() ?? 0, loadMs, title, metaDesc, langAttr,
       h1, h2, h3, imgTotal: imgs.length, imgNoAlt,
       linksInternal, linksExternal, wordCount,
       hasCanonical, hasOgTitle, hasOgDesc, hasOgImage, hasTwitterCard,
@@ -152,6 +158,8 @@ async function fetchPage(url: string): Promise<PageData> {
       brokenLinks: [],
       rawHtml: `FETCH_ERROR: ${msg}`,
     };
+  } finally {
+    await browser.close();
   }
 }
 
